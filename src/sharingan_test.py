@@ -28,10 +28,11 @@ def processArgs():
 
     with open(os.path.join(a.output_dir, "options.json"), "w") as f:
         f.write(json.dumps(vars(a), sort_keys=True, indent=4))
+    return a
 
 def main():
 
-    processArgs()
+    a = processArgs()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)

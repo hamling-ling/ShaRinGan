@@ -11,6 +11,12 @@ import json
 import random
 from sharingan_base import *
 
+def initRand():
+    seed = 0
+    tf.set_random_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
 def processArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", help="path to folder containing images")
@@ -22,11 +28,6 @@ def processArgs():
 
     a = parser.parse_args()
 
-    seed = 0
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
@@ -36,9 +37,12 @@ def processArgs():
     with open(os.path.join(a.output_dir, "options.json"), "w") as f:
         f.write(json.dumps(vars(a), sort_keys=True, indent=4))
 
+    return a
+
 def main():
 
-    processArgs()
+    initRand()
+    a = processArgs()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=True)
     print("examples count = %d" % examples.count)
