@@ -17,6 +17,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
 kSz = 256
 
 parser = argparse.ArgumentParser()
@@ -37,6 +39,7 @@ EPS = 1e-12
 SZ = 256
 
 save_freq=5000
+summary_freq=1000
 display_freq=0
 progress_freq=50
 lr=0.0002
@@ -256,13 +259,13 @@ def create_model(inputs, targets):
         # minimizing -tf.log will try to get inputs to 1
         # predict_real => 1
         # predict_fake => 0
-        discrim_loss = tf.reduce_mean(-(tf.log(predict_real + EPS) + tf.log(1 - predict_fake + EPS)))
+        discrim_loss = tf.reduce_mean(-(tf.log(predict_real + EPS) + tf.log(1 - predict_fake + EPS)), name="discrim_loss")
 
     with tf.name_scope("generator_loss"):
         # predict_fake => 1
         # abs(targets - outputs) => 0
-        gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS))
-        gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs))
+        gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS), name="gen_loss_GAN")
+        gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
         gen_loss = gen_loss_GAN * gan_weight + gen_loss_L1 * l1_weight
 
     with tf.name_scope("discriminator_train"):
@@ -324,6 +327,25 @@ def save_images(fetches, step=None):
     fn = os.path.join(image_dir, "step{0:0>4}.png".format(step))
     save_plots(fetches["inputs"], fetches["outputs"], fetches["targets"], fn)
 
+class SaveImageHook(tf.train.SessionRunHook):
+    def __init__(self, fetches, save_steps):
+        self._fetches = fetches
+        self._save_steps = save_steps
+
+    def begin(self):
+        self._step = 0
+
+    def before_run(self, run_context):
+        if(self._step % self._save_steps == 0):
+            return tf.train.SessionRunArgs(self._fetches)
+        return None
+
+    def after_run(self, run_context, run_values):
+        if(run_values is not None):
+            fetches = run_values.results
+            save_images(fetches, step=self._step)
+            self._step += 1
+
 def main():
     seed = 0
     tf.set_random_seed(seed)
@@ -370,66 +392,50 @@ def main():
     with tf.name_scope("parameter_count"):
         parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
 
+    server = tf.train.Server.create_local_server()
     saver = tf.train.Saver(max_to_keep=1)
 
-    sv = tf.train.Supervisor(logdir=None, save_summaries_secs=0, saver=None)
-    with sv.managed_session() as sess:
-        print("parameter_count =", sess.run(parameter_count))
+    tensors_to_log = {
+        "discriminator_loss": "discriminator_loss/discrim_loss",
+        "generator_loss_GAN":"generator_loss/gen_loss_GAN",
+        "generator_loss_L1":"generator_loss/gen_loss_L1"
+    }
+    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=progress_freq)
 
-        if a.checkpoint is not None:
-            print("loading model from checkpoint")
-            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-            saver.restore(sess, checkpoint)
+    max_steps = examples.steps_per_epoch * a.max_epochs
 
-        max_steps = 2**32
-        if a.max_epochs is not None:
-            max_steps = examples.steps_per_epoch * a.max_epochs
-        if a.max_steps is not None:
-            max_steps = a.max_steps
+    hooks = [
+        tf.train.StopAtStepHook(num_steps=max_steps),
+        tf.train.CheckpointSaverHook(save_steps=save_freq,checkpoint_dir=a.output_dir,saver=saver),
+        tf.train.SummarySaverHook(save_steps=summary_freq),
+        logging_hook,
+        tf.train.StepCounterHook(every_n_steps=progress_freq),
+        SaveImageHook(display_fetches, save_steps=save_freq)
+    ]
 
-        # training
-        start = time.time()
+    global_step = tf.train.get_or_create_global_step()
+    get_global_step = tf.train.get_global_step()
 
-        for step in range(max_steps):
-            def should(freq):
-                return freq > 0 and ((step + 1) % freq == 0 or step == max_steps - 1)
+    init_op=tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+    scaffold = tf.train.Scaffold(init_op)
 
-            fetches = {
-                "train": model.train,
-                "global_step": sv.global_step,
-            }
+    with tf.train.MonitoredTrainingSession(master=server.target,
+                                       config=tf.ConfigProto(allow_soft_placement=True),
+                                       is_chief=True,
+                                       scaffold = scaffold,
+                                       hooks=hooks) as sess:    
+        coord = tf.train.Coordinator()
 
-            if should(progress_freq):
-                fetches["discrim_loss"] = model.discrim_loss
-                fetches["gen_loss_GAN"] = model.gen_loss_GAN
-                fetches["gen_loss_L1"] = model.gen_loss_L1
-
-            if should(display_freq):
-                fetches["display"] = display_fetches
-
-            results = sess.run(fetches)
-
-            if should(display_freq):
-                print("saving display images")
-                save_images(results["display"], step=results["global_step"])
-
-            if should(progress_freq):
-                # global_step will have the correct step count if we resume from a checkpoint
-                train_epoch = math.ceil(results["global_step"] / examples.steps_per_epoch)
-                train_step = (results["global_step"] - 1) % examples.steps_per_epoch + 1
-                rate = (step + 1) * a.batch_size / (time.time() - start)
-                remaining = (max_steps - step) * a.batch_size / rate
-                print("progress  epoch %d  step %d  image/sec %0.1f  remaining %dm" % (train_epoch, train_step, rate, remaining / 60))
-                print("discrim_loss", results["discrim_loss"])
-                print("gen_loss_GAN", results["gen_loss_GAN"])
-                print("gen_loss_L1", results["gen_loss_L1"])
-
-            if should(save_freq):
-                print("saving model")
-                saver.save(sess, os.path.join(a.output_dir, "model"), global_step=sv.global_step)
-
-            if sv.should_stop():
-                break
-
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        try:
+            while not sess.should_stop():
+                print("before global step=", tf.train.global_step(sess, tf.train.get_global_step()))
+                out = sess.run(model)
+                print("after global step=", tf.train.global_step(sess, tf.train.get_global_step()))
+        except tf.errors.OutOfRangeError:
+            print('Done training -- epoch limit reached')
+        finally:
+            coord.request_stop()
+            coord.join(threads)
 
 main()
