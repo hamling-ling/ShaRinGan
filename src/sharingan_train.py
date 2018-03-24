@@ -397,9 +397,9 @@ def main():
     saver = tf.train.Saver(max_to_keep=1)
 
     tensors_to_log = {
-        "discriminator_loss": "discriminator_loss/discrim_loss",
-        "generator_loss_GAN":"generator_loss/gen_loss_GAN",
-        "generator_loss_L1":"generator_loss/gen_loss_L1"
+        "d_loss": "discriminator_loss/discrim_loss",
+        "g_loss_GAN":"generator_loss/gen_loss_GAN",
+        "g_loss_L1":"generator_loss/gen_loss_L1"
     }
     logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=progress_freq)
 
