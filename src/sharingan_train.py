@@ -403,11 +403,12 @@ def main():
     logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=progress_freq)
 
     max_steps = examples.steps_per_epoch * a.max_epochs
+    summary_op = tf.summary.merge_all()
 
     hooks = [
         tf.train.StopAtStepHook(num_steps=max_steps),
         tf.train.CheckpointSaverHook(save_steps=save_freq,checkpoint_dir=a.output_dir,saver=saver),
-        tf.train.SummarySaverHook(save_steps=summary_freq),
+        tf.train.SummarySaverHook(save_steps=summary_freq, summary_op=summary_op),
         logging_hook,
         tf.train.StepCounterHook(every_n_steps=progress_freq),
         SaveImageHook(display_fetches, save_steps=save_freq)
