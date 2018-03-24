@@ -343,8 +343,9 @@ class SaveImageHook(tf.train.SessionRunHook):
     def after_run(self, run_context, run_values):
         if(run_values is not None):
             fetches = run_values.results
-            save_images(fetches, step=self._step)
-            self._step += 1
+            if(fetches is not None):
+                save_images(fetches, step=self._step)
+        self._step += 1
 
 def main():
     seed = 0
@@ -430,9 +431,7 @@ def main():
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
         try:
             while not sess.should_stop():
-                print("before global step=", tf.train.global_step(sess, tf.train.get_global_step()))
                 out = sess.run(model)
-                print("after global step=", tf.train.global_step(sess, tf.train.get_global_step()))
         except tf.errors.OutOfRangeError:
             print('Done training -- epoch limit reached')
         finally:
