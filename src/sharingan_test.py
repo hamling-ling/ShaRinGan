@@ -23,11 +23,6 @@ def processArgs():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    for k, v in a._get_kwargs():
-        print(k, "=", v)
-
-    with open(os.path.join(a.output_dir, "options.json"), "w") as f:
-        f.write(json.dumps(vars(a), sort_keys=True, indent=4))
     return a
 
 def main():
@@ -56,7 +51,7 @@ def main():
         parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
 
     server = tf.train.Server.create_local_server()
-    saver = tf.train.Saver(max_to_keep=1)
+    saver = tf.train.Saver()
 
     tensors_to_log = {
         "d_loss": "discriminator_loss/discrim_loss",
