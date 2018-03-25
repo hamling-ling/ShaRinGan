@@ -296,7 +296,7 @@ def save_plots(inputs, outputs, targets, filename):
             plt.subplot(8,8,i+1)
             plt.plot(inputs[i,0,:,0], linestyle='solid')
             plt.plot(outputs[i,0,:,0], linestyle='dashed')
-            plt.plot(targets[i,0,:,0], linestyle='dot')
+            plt.plot(targets[i,0,:,0], linestyle='dotted')
     else:
         plt.plot(inputs[0,0,:,0], linestyle='solid')
         plt.plot(outputs[0,0,:,0], linestyle='dashed')
