@@ -58,16 +58,11 @@ def main():
         "g_loss_GAN":"generator_loss/gen_loss_GAN",
         "g_loss_L1":"generator_loss/gen_loss_L1"
     }
-    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=progress_freq)
+    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=1)
 
-    max_steps = examples.steps_per_epoch
-
-    hooks = [
-        tf.train.StopAtStepHook(num_steps=max_steps),
-    ]
-
-    global_step = tf.train.get_or_create_global_step()
-    get_global_step = tf.train.get_global_step()
+    max_steps = a.max_steps
+    if(max_steps is None):
+        max_steps = examples.steps_per_epoch
 
     init_op=tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     scaffold = tf.train.Scaffold(init_op)
@@ -75,8 +70,7 @@ def main():
     with tf.train.MonitoredTrainingSession(master=server.target,
                                        config=tf.ConfigProto(allow_soft_placement=True),
                                        is_chief=True,
-                                       scaffold = scaffold,
-                                       hooks=hooks) as sess:
+                                       scaffold = scaffold) as sess:
         print("loading model from checkpoint")
         checkpoint = tf.train.latest_checkpoint(a.checkpoint)
         saver.restore(sess, checkpoint)
@@ -87,6 +81,8 @@ def main():
         try:
             counter = 0
             while not sess.should_stop():
+                if(max_steps < counter):
+                    break
                 fetches = sess.run(display_fetches)
                 save_images(a.output_dir, fetches, counter)
                 counter = counter + 1
