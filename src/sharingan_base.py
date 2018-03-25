@@ -16,6 +16,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
+from abc import ABCMeta, abstractmethod
+
 tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-12
@@ -316,23 +318,36 @@ def save_images(output_dir, fetches, step=None):
     fn = os.path.join(image_dir, "step{0:0>4}.png".format(step))
     save_plots(fetches["inputs"], fetches["outputs"], fetches["targets"], fn)
 
-class SaveImageHook(tf.train.SessionRunHook):
-    def __init__(self, output_dir, fetches, save_steps):
-        self._fetches = fetches
-        self._save_steps = save_steps
-        self._output_dir = output_dir
+class StepCountHook(tf.train.SessionRunHook):
+
+    __metaclass__ = ABCMeta
+
+    def __init__(self, op, hook_steps):
+        self._hook_steps = hook_steps
+        self._op = op
 
     def begin(self):
         self._step = 0
 
     def before_run(self, run_context):
-        if(self._step % self._save_steps == 0):
-            return tf.train.SessionRunArgs(self._fetches)
-        return None
+        if(self._step % self._hook_steps == 0):
+            return tf.train.SessionRunArgs(self._op)
 
     def after_run(self, run_context, run_values):
         if(run_values is not None):
-            fetches = run_values.results
-            if(fetches is not None):
-                save_images(self._output_dir, fetches, step=self._step)
+            val = run_values.results
+            if(val is not None):
+                self.ellapsed(val, step=self._step)
         self._step += 1
+
+    @abstractmethod
+    def ellapsed(self, val, step):
+        return
+
+class SaveImageHook(StepCountHook):
+    def __init__(self, output_dir, fetches, save_steps):
+        self._output_dir = output_dir
+        super(SaveImageHook, self).__init__(op=fetches, hook_steps=save_steps)
+
+    def ellapsed(self, val, step):
+        save_images(output_dir=self._output_dir, fetches=val, step=step)
