@@ -331,13 +331,13 @@ class StepCountHook(tf.train.SessionRunHook):
 
     def before_run(self, run_context):
         if(self._step % self._hook_steps == 0):
-            return tf.train.SessionRunArgs(self._op)
+            if(self._op is not None):
+                return tf.train.SessionRunArgs(self._op)
 
     def after_run(self, run_context, run_values):
-        if(run_values is not None):
+        if(run_values is not None and run_values.results is not None):
             val = run_values.results
-            if(val is not None):
-                self.ellapsed(val, step=self._step)
+            self.ellapsed(val=val, step=self._step)
         self._step += 1
 
     @abstractmethod
@@ -351,3 +351,13 @@ class SaveImageHook(StepCountHook):
 
     def ellapsed(self, val, step):
         save_images(output_dir=self._output_dir, fetches=val, step=step)
+
+class ProgressLoggingHook(StepCountHook):
+    def __init__(self, log_steps, max_steps):
+        self._max_steps = max_steps
+        op = tf.constant(3)# have to set something. work around
+        super(ProgressLoggingHook, self).__init__(op=op, hook_steps=log_steps)
+
+    def ellapsed(self, val, step):
+        percent=100.0*step/self._max_steps
+        print("progress={0}% ({1}/{2})".format(percent, step, self._max_steps))

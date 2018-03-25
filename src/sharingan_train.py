@@ -94,7 +94,8 @@ def main():
         tf.train.SummarySaverHook(save_steps=summary_freq, summary_op=summary_op),
         logging_hook,
         tf.train.StepCounterHook(every_n_steps=progress_freq),
-        SaveImageHook(output_dir=a.output_dir, fetches=display_fetches, save_steps=save_freq)
+        SaveImageHook(output_dir=a.output_dir, fetches=display_fetches, save_steps=save_freq),
+        ProgressLoggingHook(log_steps=progress_freq, max_steps=max_steps)
     ]
 
     global_step = tf.train.get_or_create_global_step()
