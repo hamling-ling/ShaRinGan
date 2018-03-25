@@ -21,7 +21,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 EPS = 1e-12
 SZ = 256
 
-save_freq=5000
+save_freq=1000
 summary_freq=1000
 display_freq=0
 progress_freq=50
