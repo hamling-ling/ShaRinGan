@@ -76,7 +76,7 @@ def main():
         parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
 
     server = tf.train.Server.create_local_server()
-    saver = tf.train.Saver(max_to_keep=1)
+    saver = tf.train.Saver(max_to_keep=10)
 
     tensors_to_log = {
         "d_loss": "discriminator_loss/discrim_loss",
