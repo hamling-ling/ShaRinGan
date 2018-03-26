@@ -3,6 +3,8 @@ import numpy as np
 import glob
 import os
 
+tf.logging.set_verbosity(tf.logging.INFO)
+
 sz=256 # signel data length
 epoch = 2
 max_steps = 3 #exit loop at this step num even if epoch num not reached
@@ -29,7 +31,11 @@ model = createGraph()
 
 # create a one process cluster with an in-process server
 server = tf.train.Server.create_local_server()
-hooks = [tf.train.StopAtStepHook(num_steps=max_steps)]
+hooks = [
+    tf.train.StopAtStepHook(num_steps=max_steps),
+    tf.train.LoggingTensorHook(tensors={"the value ":"v"}, every_n_iter=1),
+    tf.train.StepCounterHook(every_n_steps=1)
+]
 global_step = tf.train.get_or_create_global_step()
 get_global_step = tf.train.get_global_step()
 increment_global_step = tf.assign(global_step, global_step+1)
@@ -37,6 +43,8 @@ increment_global_step = tf.assign(global_step, global_step+1)
 init_op=tf.group(tf.global_variables_initializer(),
                  tf.local_variables_initializer())
 scaffold = tf.train.Scaffold(init_op)
+
+sample_val = tf.constant(3, name="v")
 
 with tf.train.MonitoredTrainingSession(master=server.target,
                                        config=tf.ConfigProto(allow_soft_placement=True),
@@ -49,7 +57,7 @@ with tf.train.MonitoredTrainingSession(master=server.target,
     try:
         while not sess.should_stop():
             print("before global step=", tf.train.global_step(sess, tf.train.get_global_step()))
-            out, gs = sess.run([model, increment_global_step])
+            out, gs, v = sess.run([model, increment_global_step, sample_val])
             print("after global step=", gs)
             #if(gs == 2):
             #    break

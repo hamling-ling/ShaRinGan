@@ -12,37 +12,27 @@ import glob
 import random
 import collections
 import math
-import time
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-kSz = 256
+from abc import ABCMeta, abstractmethod
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--input_dir", help="path to folder containing images")
-parser.add_argument("--output_dir", required=True, help="where to put output files")
-parser.add_argument("--checkpoint", default=None, help="directory with checkpoint to resume training from or use for testing")
-
-parser.add_argument("--max_steps", type=int, help="number of training steps (0 to disable)")
-parser.add_argument("--max_epochs", type=int, help="number of training epochs")
-
-parser.add_argument("--batch_size", type=int, default=1, help="number of images in batch")
-parser.add_argument("--ngf", type=int, default=64, help="number of generator filters in first conv layer")
-parser.add_argument("--ndf", type=int, default=64, help="number of discriminator filters in first conv layer")
-
-a = parser.parse_args()
+tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-12
 SZ = 256
 
-save_freq=5000
+save_freq=1000
+summary_freq=1000
 display_freq=0
 progress_freq=50
 lr=0.0002
 beta1=0.5
 l1_weight=100.0
 gan_weight=1.0
+ngf=64
+ndf=64
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
@@ -91,18 +81,22 @@ def batchnorm(inputs):
     return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=True, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
 
 
-def load_examples():
-    if a.input_dir is None or not os.path.exists(a.input_dir):
+def load_examples(input_dir, batch_size, is_training=True):
+    if input_dir is None or not os.path.exists(input_dir):
         raise Exception("input_dir does not exist")
 
-    input_paths = glob.glob(os.path.join(a.input_dir, "*.bin"))
+    input_paths = glob.glob(os.path.join(input_dir, "*.bin"))
     input_paths.sort()
 
     if len(input_paths) == 0:
-        raise Exception("input_dir contains no image files")
+        raise Exception("input_dir contains no image files ", input_dir)
 
     with tf.name_scope("load_images"):
-        path_queue = tf.train.string_input_producer(input_paths, shuffle=True)#shuffle only for training
+        if(is_training):
+            #shuffle only for training
+            path_queue = tf.train.string_input_producer(input_paths, shuffle=True)
+        else:
+            path_queue = tf.train.string_input_producer(input_paths, shuffle=False, num_epochs=1)
         reader = tf.WholeFileReader()
         paths, contents = reader.read(path_queue)
 
@@ -122,8 +116,8 @@ def load_examples():
     with tf.name_scope("target_images"):
         target_images = targets
 
-    paths_batch, inputs_batch, targets_batch = tf.train.batch([paths, input_images, target_images], batch_size=a.batch_size)
-    steps_per_epoch = int(math.ceil(len(input_paths) / a.batch_size))
+    paths_batch, inputs_batch, targets_batch = tf.train.batch([paths, input_images, target_images], batch_size=batch_size)
+    steps_per_epoch = int(math.ceil(len(input_paths) / batch_size))
 
     return Examples(
         paths=paths_batch,
@@ -139,17 +133,17 @@ def create_generator(generator_inputs, generator_outputs_channels):
 
     # encoder_1: [batch, 1, 256, in_channels] => [batch, 1, 128, ngf]
     with tf.variable_scope("encoder_1"):
-        output = gen_conv(generator_inputs, a.ngf)
+        output = gen_conv(generator_inputs, ngf)
         layers.append(output)
 
     layer_specs = [
-        a.ngf * 2, # encoder_2: [batch, 1, 128, ngf] => [batch, 1, 64, ngf * 2]
-        a.ngf * 4, # encoder_3: [batch, 1, 64, ngf * 2] => [batch, 1, 32, ngf * 4]
-        a.ngf * 8, # encoder_4: [batch, 1, 32, ngf * 4] => [batch, 1, 16, ngf * 8]
-        a.ngf * 8, # encoder_5: [batch, 1, 16, ngf * 8] => [batch, 1, 8, ngf * 8]
-        a.ngf * 8, # encoder_6: [batch, 1, 8, ngf * 8] => [batch, 1, 4, ngf * 8]
-        a.ngf * 8, # encoder_7: [batch, 1, 4, ngf * 8] => [batch, 1, 2, ngf * 8]
-        a.ngf * 8, # encoder_8: [batch, 1, 2, ngf * 8] => [batch, 1, 1, ngf * 8]
+        ngf * 2, # encoder_2: [batch, 1, 128, ngf] => [batch, 1, 64, ngf * 2]
+        ngf * 4, # encoder_3: [batch, 1, 64, ngf * 2] => [batch, 1, 32, ngf * 4]
+        ngf * 8, # encoder_4: [batch, 1, 32, ngf * 4] => [batch, 1, 16, ngf * 8]
+        ngf * 8, # encoder_5: [batch, 1, 16, ngf * 8] => [batch, 1, 8, ngf * 8]
+        ngf * 8, # encoder_6: [batch, 1, 8, ngf * 8] => [batch, 1, 4, ngf * 8]
+        ngf * 8, # encoder_7: [batch, 1, 4, ngf * 8] => [batch, 1, 2, ngf * 8]
+        ngf * 8, # encoder_8: [batch, 1, 2, ngf * 8] => [batch, 1, 1, ngf * 8]
     ]
 
     for out_channels in layer_specs:
@@ -161,13 +155,13 @@ def create_generator(generator_inputs, generator_outputs_channels):
             layers.append(output)
 
     layer_specs = [
-        (a.ngf * 8, 0.5),   # decoder_8: [batch, 1, 1, ngf * 8] => [batch, 1, 2, ngf * 8 * 2]
-        (a.ngf * 8, 0.5),   # decoder_7: [batch, 1 2, ngf * 8 * 2] => [batch, 1, 4, ngf * 8 * 2]
-        (a.ngf * 8, 0.5),   # decoder_6: [batch, 1, 4, ngf * 8 * 2] => [batch, 1, 8, ngf * 8 * 2]
-        (a.ngf * 8, 0.0),   # decoder_5: [batch, 1, 8, ngf * 8 * 2] => [batch, 1, 16, ngf * 8 * 2]
-        (a.ngf * 4, 0.0),   # decoder_4: [batch, 1, 16, ngf * 8 * 2] => [batch, 1, 32, ngf * 4 * 2]
-        (a.ngf * 2, 0.0),   # decoder_3: [batch, 1, 32, ngf * 4 * 2] => [batch, 1, 64, ngf * 2 * 2]
-        (a.ngf, 0.0),       # decoder_2: [batch, 1, 64, ngf * 2 * 2] => [batch, 1, 128, ngf * 2]
+        (ngf * 8, 0.5),   # decoder_8: [batch, 1, 1, ngf * 8] => [batch, 1, 2, ngf * 8 * 2]
+        (ngf * 8, 0.5),   # decoder_7: [batch, 1 2, ngf * 8 * 2] => [batch, 1, 4, ngf * 8 * 2]
+        (ngf * 8, 0.5),   # decoder_6: [batch, 1, 4, ngf * 8 * 2] => [batch, 1, 8, ngf * 8 * 2]
+        (ngf * 8, 0.0),   # decoder_5: [batch, 1, 8, ngf * 8 * 2] => [batch, 1, 16, ngf * 8 * 2]
+        (ngf * 4, 0.0),   # decoder_4: [batch, 1, 16, ngf * 8 * 2] => [batch, 1, 32, ngf * 4 * 2]
+        (ngf * 2, 0.0),   # decoder_3: [batch, 1, 32, ngf * 4 * 2] => [batch, 1, 64, ngf * 2 * 2]
+        (ngf, 0.0),       # decoder_2: [batch, 1, 64, ngf * 2 * 2] => [batch, 1, 128, ngf * 2]
     ]
 
     num_encoder_layers = len(layers)
@@ -212,7 +206,7 @@ def create_model(inputs, targets):
 
         # layer_1: [batch, 1, 256, in_channels * 2] => [batch, 1, 128, ndf]
         with tf.variable_scope("layer_1"):
-            convolved = discrim_conv(input, a.ndf, stride=2)
+            convolved = discrim_conv(input, ndf, stride=2)
             rectified = lrelu(convolved, 0.2)
             layers.append(rectified)
 
@@ -221,7 +215,7 @@ def create_model(inputs, targets):
         # layer_4: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
         for i in range(n_layers):
             with tf.variable_scope("layer_%d" % (len(layers) + 1)):
-                out_channels = a.ndf * min(2**(i+1), 8)
+                out_channels = ndf * min(2**(i+1), 8)
                 stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
                 convolved = discrim_conv(layers[-1], out_channels, stride=stride)
                 normalized = batchnorm(convolved)
@@ -256,13 +250,13 @@ def create_model(inputs, targets):
         # minimizing -tf.log will try to get inputs to 1
         # predict_real => 1
         # predict_fake => 0
-        discrim_loss = tf.reduce_mean(-(tf.log(predict_real + EPS) + tf.log(1 - predict_fake + EPS)))
+        discrim_loss = tf.reduce_mean(-(tf.log(predict_real + EPS) + tf.log(1 - predict_fake + EPS)), name="discrim_loss")
 
     with tf.name_scope("generator_loss"):
         # predict_fake => 1
         # abs(targets - outputs) => 0
-        gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS))
-        gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs))
+        gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS), name="gen_loss_GAN")
+        gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
         gen_loss = gen_loss_GAN * gan_weight + gen_loss_L1 * l1_weight
 
     with tf.name_scope("discriminator_train"):
@@ -304,7 +298,7 @@ def save_plots(inputs, outputs, targets, filename):
             plt.subplot(8,8,i+1)
             plt.plot(inputs[i,0,:,0], linestyle='solid')
             plt.plot(outputs[i,0,:,0], linestyle='dashed')
-            plt.plot(targets[i,0,:,0], linestyle='dot')
+            plt.plot(targets[i,0,:,0], linestyle='dotted')
     else:
         plt.plot(inputs[0,0,:,0], linestyle='solid')
         plt.plot(outputs[0,0,:,0], linestyle='dashed')
@@ -314,8 +308,8 @@ def save_plots(inputs, outputs, targets, filename):
     plt.clf()
     print(filename, " saved")
 
-def save_images(fetches, step=None):
-    image_dir = os.path.join(a.output_dir, "images")
+def save_images(output_dir, fetches, step=None):
+    image_dir = os.path.join(output_dir, "images")
     if not os.path.exists(image_dir):
         os.makedirs(image_dir)
     if(step is None):
@@ -324,112 +318,46 @@ def save_images(fetches, step=None):
     fn = os.path.join(image_dir, "step{0:0>4}.png".format(step))
     save_plots(fetches["inputs"], fetches["outputs"], fetches["targets"], fn)
 
-def main():
-    seed = 0
-    tf.set_random_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+class StepCountHook(tf.train.SessionRunHook):
 
-    if not os.path.exists(a.output_dir):
-        os.makedirs(a.output_dir)
+    __metaclass__ = ABCMeta
 
-    for k, v in a._get_kwargs():
-        print(k, "=", v)
+    def __init__(self, op, hook_steps):
+        self._hook_steps = hook_steps
+        self._op = op
 
-    with open(os.path.join(a.output_dir, "options.json"), "w") as f:
-        f.write(json.dumps(vars(a), sort_keys=True, indent=4))
+    def begin(self):
+        self._step = 0
 
-    examples = load_examples()
-    print("examples count = %d" % examples.count)
+    def before_run(self, run_context):
+        if(self._step % self._hook_steps == 0):
+            if(self._op is not None):
+                return tf.train.SessionRunArgs(self._op)
 
-    # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets)
+    def after_run(self, run_context, run_values):
+        if(run_values is not None and run_values.results is not None):
+            val = run_values.results
+            self.ellapsed(val=val, step=self._step)
+        self._step += 1
 
-    inputs = examples.inputs
-    targets = examples.targets
-    outputs = model.outputs
+    @abstractmethod
+    def ellapsed(self, val, step):
+        return
 
-    with tf.name_scope("encode_images"):
-        display_fetches = {
-            "paths": examples.paths,
-            "inputs": inputs,
-            "targets": targets,
-            "outputs": outputs,
-        }
+class SaveImageHook(StepCountHook):
+    def __init__(self, output_dir, fetches, save_steps):
+        self._output_dir = output_dir
+        super(SaveImageHook, self).__init__(op=fetches, hook_steps=save_steps)
 
-    tf.summary.scalar("discriminator_loss", model.discrim_loss)
-    tf.summary.scalar("generator_loss_GAN", model.gen_loss_GAN)
-    tf.summary.scalar("generator_loss_L1", model.gen_loss_L1)
+    def ellapsed(self, val, step):
+        save_images(output_dir=self._output_dir, fetches=val, step=step)
 
-    for var in tf.trainable_variables():
-        tf.summary.histogram(var.op.name + "/values", var)
+class ProgressLoggingHook(StepCountHook):
+    def __init__(self, log_steps, max_steps):
+        self._max_steps = max_steps
+        op = tf.constant(3)# have to set something. work around
+        super(ProgressLoggingHook, self).__init__(op=op, hook_steps=log_steps)
 
-    for grad, var in model.discrim_grads_and_vars + model.gen_grads_and_vars:
-        tf.summary.histogram(var.op.name + "/gradients", grad)
-
-    with tf.name_scope("parameter_count"):
-        parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
-
-    saver = tf.train.Saver(max_to_keep=1)
-
-    sv = tf.train.Supervisor(logdir=None, save_summaries_secs=0, saver=None)
-    with sv.managed_session() as sess:
-        print("parameter_count =", sess.run(parameter_count))
-
-        if a.checkpoint is not None:
-            print("loading model from checkpoint")
-            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-            saver.restore(sess, checkpoint)
-
-        max_steps = 2**32
-        if a.max_epochs is not None:
-            max_steps = examples.steps_per_epoch * a.max_epochs
-        if a.max_steps is not None:
-            max_steps = a.max_steps
-
-        # training
-        start = time.time()
-
-        for step in range(max_steps):
-            def should(freq):
-                return freq > 0 and ((step + 1) % freq == 0 or step == max_steps - 1)
-
-            fetches = {
-                "train": model.train,
-                "global_step": sv.global_step,
-            }
-
-            if should(progress_freq):
-                fetches["discrim_loss"] = model.discrim_loss
-                fetches["gen_loss_GAN"] = model.gen_loss_GAN
-                fetches["gen_loss_L1"] = model.gen_loss_L1
-
-            if should(display_freq):
-                fetches["display"] = display_fetches
-
-            results = sess.run(fetches)
-
-            if should(display_freq):
-                print("saving display images")
-                save_images(results["display"], step=results["global_step"])
-
-            if should(progress_freq):
-                # global_step will have the correct step count if we resume from a checkpoint
-                train_epoch = math.ceil(results["global_step"] / examples.steps_per_epoch)
-                train_step = (results["global_step"] - 1) % examples.steps_per_epoch + 1
-                rate = (step + 1) * a.batch_size / (time.time() - start)
-                remaining = (max_steps - step) * a.batch_size / rate
-                print("progress  epoch %d  step %d  image/sec %0.1f  remaining %dm" % (train_epoch, train_step, rate, remaining / 60))
-                print("discrim_loss", results["discrim_loss"])
-                print("gen_loss_GAN", results["gen_loss_GAN"])
-                print("gen_loss_L1", results["gen_loss_L1"])
-
-            if should(save_freq):
-                print("saving model")
-                saver.save(sess, os.path.join(a.output_dir, "model"), global_step=sv.global_step)
-
-            if sv.should_stop():
-                break
-
-
-main()
+    def ellapsed(self, val, step):
+        percent=100.0*step/self._max_steps
+        print("progress={0}% ({1}/{2})".format(percent, step, self._max_steps))
