@@ -1,5 +1,5 @@
 # how to run
-# python bin2png.py --input_dir="./data/input/validation" --output_dir="./"
+# python bin2png.py --input_dir="./data/input/validation" --output_dir="./" --data_size 1024
 
 import tensorflow as tf
 import numpy as np
@@ -10,7 +10,13 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-SZ = 256
+SZ = 1024
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--input_dir", help="path to folder containing images")
+parser.add_argument("--output_dir", required=True, help="where to put output files")
+parser.add_argument("--data_size", type=int, default=SZ, help="specify data length 256 or 1024 typically")
+a = parser.parse_args()
 
 def save_plots(inputs, outputs, filename):
 
@@ -32,17 +38,12 @@ def load_examples(input_paths):
     paths, contents = reader.read(path_queue)
 
     raw_input = tf.decode_raw(contents, tf.float32)
-    raw_input = tf.reshape(raw_input,[2,1,tf.constant(SZ),1])
+    raw_input = tf.reshape(raw_input,[2,1,tf.constant(a.data_size),1])
 
     a_images = raw_input[0]
     b_images = raw_input[1]
 
     return tf.train.batch([paths, a_images, b_images], batch_size=1)
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--input_dir", help="path to folder containing images")
-parser.add_argument("--output_dir", required=True, help="where to put output files")
-a = parser.parse_args()
 
 input_paths = glob.glob(os.path.join(a.input_dir, "*.bin"))
 input_paths.sort()
