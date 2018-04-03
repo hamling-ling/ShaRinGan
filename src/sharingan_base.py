@@ -21,7 +21,7 @@ from abc import ABCMeta, abstractmethod
 tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-12
-SZ = 256
+SZ = 1024
 
 save_freq=1000
 summary_freq=1000
@@ -131,19 +131,21 @@ def load_examples(input_dir, batch_size, is_training=True):
 def create_generator(generator_inputs, generator_outputs_channels):
     layers = []
 
-    # encoder_1: [batch, 1, 256, in_channels] => [batch, 1, 128, ngf]
+    # encoder_1: [batch, 1, 1024, in_channels] => [batch, 1, 512, ngf]
     with tf.variable_scope("encoder_1"):
         output = gen_conv(generator_inputs, ngf)
         layers.append(output)
 
     layer_specs = [
-        ngf * 2, # encoder_2: [batch, 1, 128, ngf] => [batch, 1, 64, ngf * 2]
-        ngf * 4, # encoder_3: [batch, 1, 64, ngf * 2] => [batch, 1, 32, ngf * 4]
-        ngf * 8, # encoder_4: [batch, 1, 32, ngf * 4] => [batch, 1, 16, ngf * 8]
-        ngf * 8, # encoder_5: [batch, 1, 16, ngf * 8] => [batch, 1, 8, ngf * 8]
-        ngf * 8, # encoder_6: [batch, 1, 8, ngf * 8] => [batch, 1, 4, ngf * 8]
-        ngf * 8, # encoder_7: [batch, 1, 4, ngf * 8] => [batch, 1, 2, ngf * 8]
-        ngf * 8, # encoder_8: [batch, 1, 2, ngf * 8] => [batch, 1, 1, ngf * 8]
+        ngf * 2, # encoder_2: [batch, 1, 512, ngf] => [batch, 1, 256, ngf * 2]
+        ngf * 4, # encoder_3: [batch, 1, 256, ngf * 2] => [batch, 1, 128, ngf * 4]
+        ngf * 8, # encoder_4: [batch, 1, 128, ngf * 4] => [batch, 1, 64, ngf * 8]
+        ngf * 8, # encoder_5: [batch, 1, 64, ngf * 4] => [batch, 1, 32, ngf * 8]
+        ngf * 8, # encoder_6: [batch, 1, 32, ngf * 4] => [batch, 1, 16, ngf * 8]
+        ngf * 8, # encoder_7: [batch, 1, 16, ngf * 8] => [batch, 1, 8, ngf * 8]
+        ngf * 8, # encoder_8: [batch, 1, 8, ngf * 8] => [batch, 1, 4, ngf * 8]
+        ngf * 8, # encoder_9: [batch, 1, 4, ngf * 8] => [batch, 1, 2, ngf * 8]
+        ngf * 8, # encoder_10: [batch, 1, 2, ngf * 8] => [batch, 1, 1, ngf * 8]
     ]
 
     for out_channels in layer_specs:
@@ -155,13 +157,15 @@ def create_generator(generator_inputs, generator_outputs_channels):
             layers.append(output)
 
     layer_specs = [
-        (ngf * 8, 0.5),   # decoder_8: [batch, 1, 1, ngf * 8] => [batch, 1, 2, ngf * 8 * 2]
-        (ngf * 8, 0.5),   # decoder_7: [batch, 1 2, ngf * 8 * 2] => [batch, 1, 4, ngf * 8 * 2]
-        (ngf * 8, 0.5),   # decoder_6: [batch, 1, 4, ngf * 8 * 2] => [batch, 1, 8, ngf * 8 * 2]
-        (ngf * 8, 0.0),   # decoder_5: [batch, 1, 8, ngf * 8 * 2] => [batch, 1, 16, ngf * 8 * 2]
-        (ngf * 4, 0.0),   # decoder_4: [batch, 1, 16, ngf * 8 * 2] => [batch, 1, 32, ngf * 4 * 2]
-        (ngf * 2, 0.0),   # decoder_3: [batch, 1, 32, ngf * 4 * 2] => [batch, 1, 64, ngf * 2 * 2]
-        (ngf, 0.0),       # decoder_2: [batch, 1, 64, ngf * 2 * 2] => [batch, 1, 128, ngf * 2]
+        (ngf * 8, 0.5),   # decoder_10: [batch, 1, 1, ngf * 8] => [batch, 1, 2, ngf * 8 * 2]
+        (ngf * 8, 0.5),   # decoder_9: [batch, 1 2, ngf * 8 * 2] => [batch, 1, 4, ngf * 8 * 2]
+        (ngf * 8, 0.5),   # decoder_8: [batch, 1, 4, ngf * 8 * 2] => [batch, 1, 8, ngf * 8 * 2]
+        (ngf * 8, 0.0),   # decoder_7: [batch, 1, 8, ngf * 8 * 2] => [batch, 1, 16, ngf * 8 * 2]
+        (ngf * 8, 0.0),   # decoder_6: [batch, 1, 16, ngf * 8 * 2] => [batch, 1, 32, ngf * 8 * 2]
+        (ngf * 8, 0.0),   # decoder_5: [batch, 1, 32, ngf * 8 * 2] => [batch, 1, 64, ngf * 8 * 2]
+        (ngf * 4, 0.0),   # decoder_4: [batch, 1, 64, ngf * 8 * 2] => [batch, 1, 128, ngf * 4 * 2]
+        (ngf * 2, 0.0),   # decoder_3: [batch, 1, 128, ngf * 4 * 2] => [batch, 1, 256, ngf * 2 * 2]
+        (ngf, 0.0),       # decoder_2: [batch, 1, 256, ngf * 2 * 2] => [batch, 1, 512, ngf * 2]
     ]
 
     num_encoder_layers = len(layers)
@@ -176,7 +180,7 @@ def create_generator(generator_inputs, generator_outputs_channels):
                 input = tf.concat([layers[-1], layers[skip_layer]], axis=3)
 
             rectified = tf.nn.relu(input)
-            # [batch, in_height, in_width, in_channels] => [batch, in_height*2, in_width*2, out_channels]
+            # [batch, in_height, in_width, in_channels] => [batch, in_height, in_width*2, out_channels]
             output = gen_deconv(rectified, out_channels)
             output = batchnorm(output)
 
@@ -185,7 +189,7 @@ def create_generator(generator_inputs, generator_outputs_channels):
 
             layers.append(output)
 
-    # decoder_1: [batch, 1, 128, ngf * 2] => [batch, 1, 256, generator_outputs_channels]
+    # decoder_1: [batch, 1, 512, ngf * 2] => [batch, 1, 1024, generator_outputs_channels]
     with tf.variable_scope("decoder_1"):
         input = tf.concat([layers[-1], layers[0]], axis=3)
         rectified = tf.nn.relu(input)
@@ -204,13 +208,15 @@ def create_model(inputs, targets):
         # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
         input = tf.concat([discrim_inputs, discrim_targets], axis=3)
 
-        # layer_1: [batch, 1, 256, in_channels * 2] => [batch, 1, 128, ndf]
+        # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
         with tf.variable_scope("layer_1"):
             convolved = discrim_conv(input, ndf, stride=2)
             rectified = lrelu(convolved, 0.2)
             layers.append(rectified)
 
-        # layer_2: [batch, 1, 128, ndf] => [batch, 1, 64, ndf * 2]
+        # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
+        # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
+        # layer_3: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
         # layer_3: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
         # layer_4: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
         for i in range(n_layers):
