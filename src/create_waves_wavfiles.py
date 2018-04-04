@@ -12,6 +12,10 @@ training_fn_pairs = [
     ["../data/raw_waves/gt_many_notes.wav", "../data/raw_waves/gt_many_notes_dist.wav"]
 ]
 
+evaluation_fn_pairs = [
+    ["../data/raw_waves/vivaldi_spring.wav", "../data/raw_waves/vivaldi_spring_dist.wav"]
+]
+
 def readWave(path_src, path_cnv):
     data_src, samplerate_src = sf.read(path_src)
     data_cnv, samplerate_cnv = sf.read(path_cnv)
@@ -50,4 +54,4 @@ os.makedirs(out_validation, exist_ok=True)
 os.makedirs(out_evaluation, exist_ok=True)
 
 outputWave(training_fn_pairs, out_train)
-
+outputWave(evaluation_fn_pairs, out_evaluation)
