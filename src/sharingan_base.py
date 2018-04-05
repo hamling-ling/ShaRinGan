@@ -202,7 +202,7 @@ def create_generator(generator_inputs, generator_outputs_channels):
 
 def create_model(inputs, targets):
     def create_discriminator(discrim_inputs, discrim_targets):
-        n_layers = 3
+        n_layers = 5
         layers = []
 
         # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
@@ -216,9 +216,9 @@ def create_model(inputs, targets):
 
         # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
         # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
-        # layer_3: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
-        # layer_3: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
-        # layer_4: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
+        # layer_4: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
+        # layer_5: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
+        # layer_6: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
         for i in range(n_layers):
             with tf.variable_scope("layer_%d" % (len(layers) + 1)):
                 out_channels = ndf * min(2**(i+1), 8)
@@ -228,7 +228,7 @@ def create_model(inputs, targets):
                 rectified = lrelu(normalized, 0.2)
                 layers.append(rectified)
 
-        # layer_5: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
+        # layer_7: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
         with tf.variable_scope("layer_%d" % (len(layers) + 1)):
             convolved = discrim_conv(rectified, out_channels=1, stride=1)
             output = tf.sigmoid(convolved)
