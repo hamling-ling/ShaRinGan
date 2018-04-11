@@ -1,4 +1,4 @@
-# mvNCCompile movidius.meta.meta -in=input -on generator/decoder_1/Tanh -s30
+# mvNCCompile movidius.meta.meta -in=input -on generator/decoder_1/Tanh -s 12
 
 from __future__ import absolute_import
 from __future__ import division
