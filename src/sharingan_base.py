@@ -227,7 +227,7 @@ def create_model(inputs, targets, is_training=True, is_fused=True):
                 out_channels = ndf * min(2**(i+1), 8)
                 stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
                 convolved = discrim_conv(layers[-1], out_channels, stride=stride)
-                normalized = batchnorm(convolved, is_training)
+                normalized = batchnorm(convolved, is_training, is_fused=is_fused)
                 #rectified = lrelu(normalized, 0.2)
                 rectified = tf.nn.leaky_relu(normalized)
                 layers.append(rectified)
