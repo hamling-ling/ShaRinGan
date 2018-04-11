@@ -37,7 +37,7 @@ def main():
 
         input = tf.placeholder("float", [1, 1, SZ, 1], name="input")
         with tf.variable_scope("generator"):
-            generator = create_generator(input, 1)
+            generator = create_generator(input, 1, is_training=False, is_fused=False)
 
         print("loading model from checkpoint")
         print("checkpoint loaded")

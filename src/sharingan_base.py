@@ -77,8 +77,8 @@ def lrelu(x, a):
         return (0.5 * (1 + a)) * x + (0.5 * (1 - a)) * tf.abs(x)
 
 
-def batchnorm(inputs, is_training):
-    return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=is_training, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
+def batchnorm(inputs, is_training, is_fused):
+    return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=is_training, fused=is_fused, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
 
 
 def load_examples(input_dir, batch_size, is_training=True):
@@ -128,7 +128,7 @@ def load_examples(input_dir, batch_size, is_training=True):
     )
 
 
-def create_generator(generator_inputs, generator_outputs_channels, is_training):
+def create_generator(generator_inputs, generator_outputs_channels, is_training, is_fused):
     layers = []
 
     # encoder_1: [batch, 1, 1024, in_channels] => [batch, 1, 512, ngf]
@@ -154,7 +154,7 @@ def create_generator(generator_inputs, generator_outputs_channels, is_training):
             rectified = tf.nn.leaky_relu(layers[-1])
             # [batch, in_height, in_width, in_channels] => [batch, in_height, in_width/2, out_channels]
             convolved = gen_conv(rectified, out_channels)
-            output = batchnorm(convolved, is_training)
+            output = batchnorm(convolved, is_training, is_fused=is_fused)
             layers.append(output)
 
     layer_specs = [
@@ -183,7 +183,7 @@ def create_generator(generator_inputs, generator_outputs_channels, is_training):
             rectified = tf.nn.relu(input)
             # [batch, in_height, in_width, in_channels] => [batch, in_height, in_width*2, out_channels]
             output = gen_deconv(rectified, out_channels)
-            output = batchnorm(output, is_training)
+            output = batchnorm(output, is_training, is_fused=is_fused)
 
             if dropout > 0.0:
                 output = tf.nn.dropout(output, keep_prob=1 - dropout)
@@ -202,7 +202,7 @@ def create_generator(generator_inputs, generator_outputs_channels, is_training):
     return layers[-1]
 
 
-def create_model(inputs, targets, is_training=True):
+def create_model(inputs, targets, is_training=True, is_fused=True):
     def create_discriminator(discrim_inputs, discrim_targets, is_training=is_training):
         n_layers = 5
         layers = []
@@ -242,7 +242,7 @@ def create_model(inputs, targets, is_training=True):
 
     with tf.variable_scope("generator"):
         out_channels = int(targets.get_shape()[-1])
-        outputs = create_generator(inputs, out_channels, is_training=is_training)
+        outputs = create_generator(inputs, out_channels, is_training=is_training, is_fused=is_fused)
 
     # create two copies of discriminator, one for real pairs and one for fake pairs
     # they share the same underlying variables
