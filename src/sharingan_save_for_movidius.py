@@ -26,6 +26,11 @@ def processArgs():
 
     return a
 
+def save_last_node_name(node_name):
+    f = open('last_node_name.txt', 'w')
+    f.write(node_name)
+    f.close()
+    print(node_name, " saved in last_node_name.txt")
 
 def main():
 
@@ -38,6 +43,7 @@ def main():
         input = tf.placeholder("float", [1, 1, SZ, 1], name="input")
         with tf.variable_scope("generator"):
             generator = create_generator(input, 1, is_training=False, is_fused=False)
+            save_last_node_name(generator.name.split(":")[0])
 
         print("loading model from checkpoint")
         print("checkpoint loaded")
