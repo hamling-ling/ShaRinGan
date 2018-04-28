@@ -31,9 +31,11 @@ with tf.Session() as sess:
 print('Start download to NCS...')
 graph.LoadTensor(data_in, 'input')
 
-output, userobj = graph.GetResult() #this will timeout! why?
-graph.DeallocateGraph()
-device.CloseDevice()
+try:
+    output, userobj = graph.GetResult() #this will timeout! why?
+except:
+    graph.DeallocateGraph()
+    device.CloseDevice()
 
 print("output.shape=", output.shape)
 
