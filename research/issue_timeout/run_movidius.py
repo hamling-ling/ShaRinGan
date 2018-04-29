@@ -23,10 +23,7 @@ with open(path_to_networks + graph_filename, mode='rb') as f:
 graph = device.AllocateGraph(graphfile)
 
 #Load data
-with tf.Session() as sess:
-    inputs_feed = tf.ones([1, 1, 1024, 1])
-    sess.run(tf.global_variables_initializer())
-    data_in = inputs_feed.eval()
+data_in = np.ones([1, 1, 1024, 1])
 
 print('Start download to NCS...')
 graph.LoadTensor(data_in, 'input')
