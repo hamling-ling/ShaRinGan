@@ -5,10 +5,8 @@ import os
 def create_generator(input):
     with tf.variable_scope("encoder"):
         ini = tf.random_normal_initializer(0, 0.02)
-        out = tf.layers.conv2d(input, 64, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=ini)
-        out = tf.nn.leaky_relu(out)
-        ini = tf.random_normal_initializer(0, 0.02)
-        out = tf.layers.conv2d(out, 128, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=ini)
+        out = tf.layers.conv2d(input, 2, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=ini)
+        out = tf.layers.conv2d(out, 4, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=ini)
     return out
 
 def save_last_node_name(node_name):
