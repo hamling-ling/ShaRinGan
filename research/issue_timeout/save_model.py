@@ -21,7 +21,6 @@ def main():
 
     in_op = tf.placeholder("float", [1, 1, 1024, 1], name="input")
 
-    # both of following model can reproduce movidius timeout
     graph = create_generator(in_op)
 
     save_last_node_name(graph.name.split(":")[0])
