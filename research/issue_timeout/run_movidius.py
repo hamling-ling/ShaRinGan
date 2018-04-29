@@ -1,6 +1,6 @@
 from mvnc import mvncapi as mvnc
 import sys
-import os
+#import os
 import numpy as np
 import tensorflow as tf
 
@@ -31,12 +31,16 @@ with tf.Session() as sess:
 print('Start download to NCS...')
 graph.LoadTensor(data_in, 'input')
 
+output = None
 try:
     output, userobj = graph.GetResult() #this will timeout! why?
-except:
+except Exception as e:
+    print(e)
+finally:
     graph.DeallocateGraph()
     device.CloseDevice()
 
-print("output.shape=", output.shape)
+if output is not None:
+    print("output.shape=", output.shape)
 
 print('Finished')
