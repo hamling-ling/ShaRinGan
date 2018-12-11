@@ -33,7 +33,7 @@ def main():
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets)
+    model = create_model(examples.inputs, examples.targets, is_training=False, is_fused=True)
 
     inputs = examples.inputs
     targets = examples.targets

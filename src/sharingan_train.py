@@ -48,7 +48,7 @@ def main():
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets)
+    model = create_model(examples.inputs, examples.targets, is_training=True, is_fused=True)
 
     inputs = examples.inputs
     targets = examples.targets
@@ -101,14 +101,26 @@ def main():
     global_step = tf.train.get_or_create_global_step()
     get_global_step = tf.train.get_global_step()
 
-    init_op=tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-    scaffold = tf.train.Scaffold(init_op)
+    if(a.checkpoint is not None):
+        ckpt = tf.train.get_checkpoint_state(a.checkpoint)
+        if ckpt:
+            last_model = ckpt.model_checkpoint_path
+            print("start with existing checkpoint ", ckpt.model_checkpoint_path)
+        else:
+            print("error no checkpoint found")
+            exit(1)
+        scaffold = None
+    else:
+        init_op=tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+        scaffold = tf.train.Scaffold(init_op)
+        print("start from no checkpoint")
 
     with tf.train.MonitoredTrainingSession(master=server.target,
-                                       config=tf.ConfigProto(allow_soft_placement=True),
-                                       is_chief=True,
-                                       scaffold = scaffold,
-                                       hooks=hooks) as sess:    
+                                           config=tf.ConfigProto(allow_soft_placement=True),
+                                           is_chief=True,
+                                           scaffold = scaffold,
+                                           checkpoint_dir = a.checkpoint,
+                                           hooks=hooks) as sess:    
         coord = tf.train.Coordinator()
 
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
