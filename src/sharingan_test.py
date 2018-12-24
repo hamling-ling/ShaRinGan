@@ -23,17 +23,19 @@ def processArgs():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    return a
+    json.loads(hyp, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
+
+    return a, hyp
 
 def main():
 
-    a = processArgs()
+    a, hyper_params = processArgs()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets, is_training=False, is_fused=True)
+    model = create_model(examples.inputs, examples.targets, hyper_params, is_training=False, is_fused=True)
 
     inputs = examples.inputs
     targets = examples.targets
