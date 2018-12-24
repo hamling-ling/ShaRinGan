@@ -23,19 +23,9 @@ tf.logging.set_verbosity(tf.logging.INFO)
 EPS = 1e-12
 SZ = 1024
 
-save_freq=1000
-summary_freq=1000
-display_freq=0
-progress_freq=50
-lr=0.0002
-beta1=0.5
-l1_weight=100.0
-gan_weight=1.0
-ngf=64
-ndf=64
-
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
+HyperParams = collections.namedtuple("HyperParams", "lr, beta1, l1_weight, gan_weight, ngf, ndf")
 
 def location(depth=0):
     frame = inspect.currentframe().f_back
@@ -49,7 +39,6 @@ def discrim_conv(batch_input, out_channels, stride):
     padded_input = tf.pad(batch_input, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
     ### (0,stride)
     return tf.layers.conv2d(padded_input, out_channels, kernel_size=[1,4], strides=(stride, stride), padding="valid", kernel_initializer=tf.random_normal_initializer(0, 0.02))
-
 
 def gen_conv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
@@ -128,7 +117,11 @@ def load_examples(input_dir, batch_size, is_training=True):
     )
 
 
-def create_generator(generator_inputs, generator_outputs_channels, is_training, is_fused):
+def create_generator(   generator_inputs,
+                        generator_outputs_channels,
+                        ngf,
+                        is_training,
+                        is_fused):
     layers = []
 
     # encoder_1: [batch, 1, 1024, in_channels] => [batch, 1, 512, ngf]
@@ -201,9 +194,16 @@ def create_generator(generator_inputs, generator_outputs_channels, is_training, 
 
     return layers[-1]
 
-
-def create_model(inputs, targets, is_training=True, is_fused=True):
-    def create_discriminator(discrim_inputs, discrim_targets, is_training=is_training):
+def create_model(inputs,
+                 targets,
+                 hyper_params,
+                 is_training = True,
+                 is_fused    = True):
+    def create_discriminator(discrim_inputs,
+                             discrim_targets,
+                             ndf,
+                             is_training = True,
+                             is_fused    = True):
         n_layers = 5
         layers = []
 
@@ -242,19 +242,31 @@ def create_model(inputs, targets, is_training=True, is_fused=True):
 
     with tf.variable_scope("generator"):
         out_channels = int(targets.get_shape()[-1])
-        outputs = create_generator(inputs, out_channels, is_training=is_training, is_fused=is_fused)
+        outputs = create_generator(generator_inputs           = inputs,
+                                   generator_outputs_channels = out_channels,
+                                   ngf                        = hyper_params.ngf,
+                                   is_training                = is_training,
+                                   is_fused                   = is_fused)
 
     # create two copies of discriminator, one for real pairs and one for fake pairs
     # they share the same underlying variables
     with tf.name_scope("real_discriminator"):
         with tf.variable_scope("discriminator"):
             # 2x [batch, height, width, channels] => [batch, 1, 30, 1]
-            predict_real = create_discriminator(inputs, targets, is_training=is_training)
+            predict_real = create_discriminator(discrim_inputs  = inputs,
+                                                discrim_targets = targets,
+                                                ndf             = hyper_params.ndf,
+                                                is_training     = is_training,
+                                                is_fused        = is_fused)
 
     with tf.name_scope("fake_discriminator"):
         with tf.variable_scope("discriminator", reuse=True):
             # 2x [batch, height, width, channels] => [batch, 1, 30, 1]
-            predict_fake = create_discriminator(inputs, outputs, is_training=is_training)
+            predict_fake = create_discriminator(discrim_inputs  = inputs,
+                                                discrim_targets = outputs,
+                                                ndf             = hyper_params.ndf,
+                                                is_training     = is_training,
+                                                is_fused        = is_fused)
 
     with tf.name_scope("discriminator_loss"):
         # minimizing -tf.log will try to get inputs to 1
@@ -267,20 +279,20 @@ def create_model(inputs, targets, is_training=True, is_fused=True):
         # abs(targets - outputs) => 0
         gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS), name="gen_loss_GAN")
         gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
-        gen_loss = gen_loss_GAN * gan_weight + gen_loss_L1 * l1_weight
+        gen_loss = gen_loss_GAN * hyper_params.gan_weight + gen_loss_L1 * hyper_params.l1_weight
 
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
         with tf.name_scope("discriminator_train"):
             discrim_tvars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
-            discrim_optim = tf.train.AdamOptimizer(lr, beta1)
+            discrim_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1)
             discrim_grads_and_vars = discrim_optim.compute_gradients(discrim_loss, var_list=discrim_tvars)
             discrim_train = discrim_optim.apply_gradients(discrim_grads_and_vars)
 
         with tf.name_scope("generator_train"):
             with tf.control_dependencies([discrim_train]):
                 gen_tvars = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
-                gen_optim = tf.train.AdamOptimizer(lr, beta1)
+                gen_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1)
                 gen_grads_and_vars = gen_optim.compute_gradients(gen_loss, var_list=gen_tvars)
                 gen_train = gen_optim.apply_gradients(gen_grads_and_vars)
 
