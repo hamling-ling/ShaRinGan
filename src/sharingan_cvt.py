@@ -15,7 +15,7 @@ def processArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", help="path to folder containing images")
     parser.add_argument("--output_dir", required=True, help="where to put output files")
-    parser.add_argument("--checkpoint", required=True, help="directory with checkpoint to use for testing")
+    parser.add_argument("--checkpoint", required=True, help="checkpoint directory or ckpt path (ex sharingan_checkpoints/model.ckpt-1001) to use for testing")
     parser.add_argument("--max_steps", type=int, help="number of training steps (0 to disable)")
     parser.add_argument("--batch_size", type=int, default=1, help="number of images in batch")
 
@@ -74,9 +74,13 @@ def main():
                                        is_chief=True,
                                        scaffold = scaffold) as sess:
         print("loading model from checkpoint")
-        checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-        saver.restore(sess, checkpoint)
-
+        if os.path.isdir(a.checkpoint):
+            print("restoring latest in ", a.checkpoint)
+            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
+            saver.restore(sess, checkpoint)
+        else:
+            print("restoring from a file ", a.checkpoint)
+            saver.restore(sess, a.checkpoint)
         coord = tf.train.Coordinator()
 
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
