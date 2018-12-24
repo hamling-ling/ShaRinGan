@@ -130,15 +130,15 @@ def create_generator(   generator_inputs,
         layers.append(output)
 
     layer_specs = [
-        ngf * 2, # encoder_2: [batch, 1, 512, ngf] => [batch, 1, 256, ngf * 2]
-        ngf * 4, # encoder_3: [batch, 1, 256, ngf * 2] => [batch, 1, 128, ngf * 4]
-        ngf * 8, # encoder_4: [batch, 1, 128, ngf * 4] => [batch, 1, 64, ngf * 8]
-        ngf * 8, # encoder_5: [batch, 1, 64, ngf * 4] => [batch, 1, 32, ngf * 8]
-        ngf * 8, # encoder_6: [batch, 1, 32, ngf * 4] => [batch, 1, 16, ngf * 8]
-        ngf * 8, # encoder_7: [batch, 1, 16, ngf * 8] => [batch, 1, 8, ngf * 8]
-        ngf * 8, # encoder_8: [batch, 1, 8, ngf * 8] => [batch, 1, 4, ngf * 8]
-        ngf * 8, # encoder_9: [batch, 1, 4, ngf * 8] => [batch, 1, 2, ngf * 8]
-        ngf * 8, # encoder_10: [batch, 1, 2, ngf * 8] => [batch, 1, 1, ngf * 8]
+        ngf * 1, # encoder_2:  [batch, 1, 512, ngf * 1] => [batch, 1, 256, ngf * 2]
+        ngf * 2, # encoder_3:  [batch, 1, 256, ngf * 2] => [batch, 1, 128, ngf * 4]
+        ngf * 2, # encoder_4:  [batch, 1, 128, ngf * 4] => [batch, 1, 64,  ngf * 8]
+        ngf * 4, # encoder_5:  [batch, 1, 64,  ngf * 4] => [batch, 1, 32,  ngf * 8]
+        ngf * 4, # encoder_6:  [batch, 1, 32,  ngf * 4] => [batch, 1, 16,  ngf * 8]
+        ngf * 4, # encoder_7:  [batch, 1, 16,  ngf * 8] => [batch, 1, 8,   ngf * 8]
+        ngf * 4, # encoder_8:  [batch, 1, 8,   ngf * 8] => [batch, 1, 4,   ngf * 8]
+        ngf * 8, # encoder_9:  [batch, 1, 4,   ngf * 8] => [batch, 1, 2,   ngf * 8]
+        ngf * 8, # encoder_10: [batch, 1, 2,   ngf * 8] => [batch, 1, 1,   ngf * 8]
     ]
 
     for out_channels in layer_specs:
@@ -151,15 +151,15 @@ def create_generator(   generator_inputs,
             layers.append(output)
 
     layer_specs = [
-        (ngf * 8, 0.5),   # decoder_10: [batch, 1, 1, ngf * 8] => [batch, 1, 2, ngf * 8 * 2]
-        (ngf * 8, 0.5),   # decoder_9: [batch, 1 2, ngf * 8 * 2] => [batch, 1, 4, ngf * 8 * 2]
-        (ngf * 8, 0.5),   # decoder_8: [batch, 1, 4, ngf * 8 * 2] => [batch, 1, 8, ngf * 8 * 2]
-        (ngf * 8, 0.0),   # decoder_7: [batch, 1, 8, ngf * 8 * 2] => [batch, 1, 16, ngf * 8 * 2]
-        (ngf * 8, 0.0),   # decoder_6: [batch, 1, 16, ngf * 8 * 2] => [batch, 1, 32, ngf * 8 * 2]
-        (ngf * 8, 0.0),   # decoder_5: [batch, 1, 32, ngf * 8 * 2] => [batch, 1, 64, ngf * 8 * 2]
-        (ngf * 4, 0.0),   # decoder_4: [batch, 1, 64, ngf * 8 * 2] => [batch, 1, 128, ngf * 4 * 2]
-        (ngf * 2, 0.0),   # decoder_3: [batch, 1, 128, ngf * 4 * 2] => [batch, 1, 256, ngf * 2 * 2]
-        (ngf, 0.0),       # decoder_2: [batch, 1, 256, ngf * 2 * 2] => [batch, 1, 512, ngf * 2]
+        (ngf * 8, 0.5),   # decoder_10: [batch, 1, 1,   ngf * 8 * 1] => [batch, 1, 2,   ngf * 8 * 2]
+        (ngf * 8, 0.5),   # decoder_9:  [batch, 1, 2,   ngf * 8 * 2] => [batch, 1, 4,   ngf * 8 * 2]
+        (ngf * 4, 0.5),   # decoder_8:  [batch, 1, 4,   ngf * 8 * 2] => [batch, 1, 8,   ngf * 8 * 2]
+        (ngf * 4, 0.0),   # decoder_7:  [batch, 1, 8,   ngf * 8 * 2] => [batch, 1, 16,  ngf * 8 * 2]
+        (ngf * 4, 0.0),   # decoder_6:  [batch, 1, 16,  ngf * 8 * 2] => [batch, 1, 32,  ngf * 8 * 2]
+        (ngf * 4, 0.0),   # decoder_5:  [batch, 1, 32,  ngf * 8 * 2] => [batch, 1, 64,  ngf * 8 * 2]
+        (ngf * 2, 0.0),   # decoder_4:  [batch, 1, 64,  ngf * 8 * 2] => [batch, 1, 128, ngf * 4 * 2]
+        (ngf * 2, 0.0),   # decoder_3:  [batch, 1, 128, ngf * 4 * 2] => [batch, 1, 256, ngf * 2 * 2]
+        (ngf * 1, 0.0),   # decoder_2:  [batch, 1, 256, ngf * 2 * 2] => [batch, 1, 512, ngf * 2 * 1]
     ]
 
     num_encoder_layers = len(layers)
