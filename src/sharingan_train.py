@@ -32,8 +32,8 @@ def processArgs():
     parser.add_argument("--beta1", type=float, default=0.5, help="beta1")
     parser.add_argument("--l1_weight", type=float, default=100.0, help="l1_weight")
     parser.add_argument("--gan_weight", type=float, default=1.0, help="gan_weight")
-    parser.add_argument("--ngf", type=float, default=16, help="ngf")
-    parser.add_argument("--ndf", type=float, default=16, help="ndf")
+    parser.add_argument("--ngf", type=int, default=16, help="ngf")
+    parser.add_argument("--ndf", type=int, default=16, help="ndf")
 
     a = parser.parse_args()
 
