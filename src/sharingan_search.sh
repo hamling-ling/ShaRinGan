@@ -26,7 +26,7 @@ function train () {
     --ngf ${NGF} \
     --ndf ${NGF} \
     --batch_size ${BATCH_SIZE} \
-    --input_dir "../data/input/training" | tee "${OUT_DIR}/output.log"
+    --input_dir "../data/input/training" 2>&1 | tee "${OUT_DIR}/output.log"
 }
 
 train 200 0.00004 16 64
