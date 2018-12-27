@@ -25,6 +25,15 @@ def processArgs():
     parser.add_argument("--max_steps", type=int, help="number of training steps (0 to disable)")
     parser.add_argument("--max_epochs", type=int, help="number of training epochs")
     parser.add_argument("--batch_size", type=int, default=1, help="number of images in batch")
+    parser.add_argument("--save_freq", type=int, default=1000, help="save frequency")
+    parser.add_argument("--summary_freq", type=int, default=1000, help="summary frequency")
+    parser.add_argument("--progress_freq", type=int, default=50, help="progress display frequency")
+    parser.add_argument("--lr", type=float, default=0.0002, help="learning rate")
+    parser.add_argument("--beta1", type=float, default=0.5, help="beta1")
+    parser.add_argument("--l1_weight", type=float, default=100.0, help="l1_weight")
+    parser.add_argument("--gan_weight", type=float, default=1.0, help="gan_weight")
+    parser.add_argument("--ngf", type=int, default=16, help="ngf")
+    parser.add_argument("--ndf", type=int, default=16, help="ndf")
 
     a = parser.parse_args()
 
@@ -37,18 +46,28 @@ def processArgs():
     with open(os.path.join(a.output_dir, "options.json"), "w") as f:
         f.write(json.dumps(vars(a), sort_keys=True, indent=4))
 
-    return a
+    hyp = HyperParams(a.lr, a.beta1, a.l1_weight, a.gan_weight, a.ngf, a.ndf)
+    with open(os.path.join(a.output_dir, "hyper_params.json"), "w") as f:
+        f.write(json.dumps(hyp._asdict(), sort_keys=True, indent=4))
+
+    return a, hyp
 
 def main():
 
     initRand()
-    a = processArgs()
+    a, hyper_params = processArgs()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=True)
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets, is_training=True, is_fused=True)
+    model = create_model(
+        inputs       = examples.inputs,
+        targets      = examples.targets,
+        hyper_params = hyper_params,
+        is_training  = True,
+        is_fused     = True
+        )
 
     inputs = examples.inputs
     targets = examples.targets
@@ -83,19 +102,19 @@ def main():
         "g_loss_GAN":"generator_loss/gen_loss_GAN",
         "g_loss_L1":"generator_loss/gen_loss_L1"
     }
-    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=progress_freq)
+    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=a.progress_freq)
 
     max_steps = examples.steps_per_epoch * a.max_epochs
     summary_op = tf.summary.merge_all()
 
     hooks = [
         tf.train.StopAtStepHook(num_steps=max_steps),
-        tf.train.CheckpointSaverHook(save_steps=save_freq,checkpoint_dir=a.output_dir,saver=saver),
-        tf.train.SummarySaverHook(save_steps=summary_freq, summary_op=summary_op),
+        tf.train.CheckpointSaverHook(save_steps=a.save_freq,checkpoint_dir=a.output_dir,saver=saver),
+        tf.train.SummarySaverHook(save_steps=a.summary_freq, summary_op=summary_op),
         logging_hook,
-        tf.train.StepCounterHook(every_n_steps=progress_freq),
-        SaveImageHook(output_dir=a.output_dir, fetches=display_fetches, save_steps=save_freq),
-        ProgressLoggingHook(log_steps=progress_freq, max_steps=max_steps)
+        tf.train.StepCounterHook(every_n_steps=a.progress_freq),
+        SaveImageHook(output_dir=a.output_dir, fetches=display_fetches, save_steps=a.save_freq),
+        ProgressLoggingHook(log_steps=a.progress_freq, max_steps=max_steps)
     ]
 
     global_step = tf.train.get_or_create_global_step()

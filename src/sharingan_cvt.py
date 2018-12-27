@@ -10,12 +10,13 @@ import inspect
 import json
 from sharingan_base import *
 import soundfile as sf
+from collections import namedtuple
 
 def processArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", help="path to folder containing images")
     parser.add_argument("--output_dir", required=True, help="where to put output files")
-    parser.add_argument("--checkpoint", required=True, help="directory with checkpoint to use for testing")
+    parser.add_argument("--checkpoint", required=True, help="checkpoint directory or ckpt path (ex sharingan_checkpoints/model.ckpt-1001) to use for testing")
     parser.add_argument("--max_steps", type=int, help="number of training steps (0 to disable)")
     parser.add_argument("--batch_size", type=int, default=1, help="number of images in batch")
 
@@ -24,18 +25,25 @@ def processArgs():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    return a
+    dir_cp = os.path.dirname(a.checkpoint)
+    filename = os.path.join(dir_cp, "hyper_params.json")
+    with open(filename) as fd:
+        json_str = fd.read()
+        print("hyper parameters=\n", json_str)
+        hyp = json.loads(json_str, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
+
+    return a, hyp
 
 
 def main():
 
-    a = processArgs()
+    a, hyper_params = processArgs()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets, is_training=True)
+    model = create_model(examples.inputs, examples.targets, hyper_params, is_training=False)
 
     inputs = examples.inputs
     targets = examples.targets
@@ -74,9 +82,13 @@ def main():
                                        is_chief=True,
                                        scaffold = scaffold) as sess:
         print("loading model from checkpoint")
-        checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-        saver.restore(sess, checkpoint)
-
+        if os.path.isdir(a.checkpoint):
+            print("restoring latest in ", a.checkpoint)
+            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
+            saver.restore(sess, checkpoint)
+        else:
+            print("restoring from a file ", a.checkpoint)
+            saver.restore(sess, a.checkpoint)
         coord = tf.train.Coordinator()
 
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
