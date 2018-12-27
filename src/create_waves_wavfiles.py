@@ -29,7 +29,7 @@ def readWave(path_src, path_cnv):
     data_cnv_trim = data_cnv[:data_len]
     return data_src_trim, data_cnv_trim
 
-def outputWave(input_fn_pairs, output_path):
+def outputWave(input_fn_pairs, output_path, is_training):
     file_counter = 0
     for fnp in input_fn_pairs:
         data_src, data_cnv  = readWave(fnp[0], fnp[1])
@@ -44,6 +44,8 @@ def outputWave(input_fn_pairs, output_path):
                 data.tofile(fn)
                 print(fn, " saved")
                 file_counter = file_counter + 1
+                if not is_training:
+                    break
 
 out_train="../data/input/training"
 out_validation = "../data/input/validation"
@@ -55,5 +57,5 @@ os.makedirs(out_train, exist_ok=True)
 os.makedirs(out_validation, exist_ok=True)
 os.makedirs(out_evaluation, exist_ok=True)
 
-outputWave(training_fn_pairs, out_train)
-outputWave(evaluation_fn_pairs, out_evaluation)
+outputWave(training_fn_pairs, out_train, True)
+outputWave(evaluation_fn_pairs, out_evaluation, False)
