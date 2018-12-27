@@ -10,6 +10,7 @@ import inspect
 import json
 from sharingan_base import *
 import soundfile as sf
+from collections import namedtuple
 
 def processArgs():
     parser = argparse.ArgumentParser()
@@ -24,10 +25,12 @@ def processArgs():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    if not os.path.exists(a.output_dir):
-        os.makedirs(a.output_dir)
-
-    json.loads(hyp, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
+    dir_cp = os.path.dirname(a.checkpoint)
+    filename = os.path.join(dir_cp, "hyper_params.json")
+    with open(filename) as fd:
+        json_str = fd.read()
+        print("hyper parameters=\n", json_str)
+        hyp = json.loads(json_str, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
 
     return a, hyp
 
