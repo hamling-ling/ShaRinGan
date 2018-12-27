@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 sz=1024
-offsets = np.array([0, 100, 200, 300, 400, 500, 600, 700, 800, 900])
+offsets = np.array([0])
 
 training_fn_pairs = [
     ["../data/raw_waves/gt_notes.wav", "../data/raw_waves/gt_notes_dist.wav"],
