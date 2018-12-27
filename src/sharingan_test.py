@@ -9,6 +9,7 @@ import os
 import inspect
 import json
 from sharingan_base import *
+from collections import namedtuple
 
 def processArgs():
     parser = argparse.ArgumentParser()
@@ -23,7 +24,12 @@ def processArgs():
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    json.loads(hyp, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
+    dir_cp = os.path.dirname(a.checkpoint)
+    filename = os.path.join(dir_cp, "hyper_params.json")
+    with open(filename) as fd:
+        json_str = fd.read()
+        print("hyper parameters=\n", json_str)
+        hyp = json.loads(json_str, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
 
     return a, hyp
 
@@ -74,8 +80,14 @@ def main():
                                        is_chief=True,
                                        scaffold = scaffold) as sess:
         print("loading model from checkpoint")
-        checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-        saver.restore(sess, checkpoint)
+        if os.path.isdir(a.checkpoint):
+            print("restoring latest in ", a.checkpoint)
+            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
+            saver.restore(sess, checkpoint)
+        else:
+            print("restoring from a file ", a.checkpoint)
+            saver.restore(sess, a.checkpoint)
+        coord = tf.train.Coordinator()
 
         coord = tf.train.Coordinator()
 
