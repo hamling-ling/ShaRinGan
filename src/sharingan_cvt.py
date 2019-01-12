@@ -126,6 +126,7 @@ def main():
         fn_target = os.path.join(a.output_dir, "target.wav")
         fn_output = os.path.join(a.output_dir, "output.wav")
 
+        os.makedirs(a.output_dir, exist_ok=True)
         sf.write(fn_input, wave_in, 44100)
         print(fn_input, " saved")
         sf.write(fn_target, wave_tgt, 44100)
