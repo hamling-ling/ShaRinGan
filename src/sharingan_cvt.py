@@ -117,7 +117,7 @@ def main():
 
                 counter = counter + 1
         except tf.errors.OutOfRangeError:
-            print('Done training -- epoch limit reached')
+            print('Done converting -- epoch limit reached')
         finally:
             coord.request_stop()
             coord.join(threads)
