@@ -45,7 +45,6 @@ def save_last_node_name(node_name):
     print(node_name, " saved in last_node_name.txt")
 
 def main():
-
     a, hyper_params = process_args()
 
     tf.reset_default_graph()
@@ -74,7 +73,7 @@ def main():
             saver.restore(sess, a.checkpoint)
         print("restored")
 
-        outfile = os.path.join(a.output_dir, "movidius.meta")
+        outfile = os.path.join(a.output_dir, "movidius")
         saver.save(sess, outfile)
         print("saved ", outfile)
 
