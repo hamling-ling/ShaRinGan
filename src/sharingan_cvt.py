@@ -45,11 +45,16 @@ def main():
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets, hyper_params, is_training=False)
+    with tf.variable_scope("generator"):
+        model = create_generator(generator_inputs           = examples.inputs,
+                                generator_outputs_channels = 1,
+                                ngf                        = hyper_params.ngf,
+                                is_training                = False,
+                                is_fused                   = False)
 
     inputs = examples.inputs
     targets = examples.targets
-    outputs = model.outputs
+    outputs = model
 
     with tf.name_scope("encode_images"):
         display_fetches = {
