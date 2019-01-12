@@ -38,7 +38,6 @@ def process_args():
 
 
 def main():
-
     a, hyper_params = process_args()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
@@ -69,13 +68,6 @@ def main():
 
     server = tf.train.Server.create_local_server()
     saver = tf.train.Saver()
-
-    tensors_to_log = {
-        "d_loss": "discriminator_loss/discrim_loss",
-        "g_loss_GAN":"generator_loss/gen_loss_GAN",
-        "g_loss_L1":"generator_loss/gen_loss_L1"
-    }
-    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=1)
 
     max_steps = a.max_steps
     if(max_steps is None):
