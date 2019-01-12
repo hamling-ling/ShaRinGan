@@ -1,5 +1,5 @@
 
-rm -rf last_node_name.tx
+rm -rf last_node_name.txt
 python save_model.py
 if [ $? -gt 0 ]; then
     echo "error: save_model.py failed"
