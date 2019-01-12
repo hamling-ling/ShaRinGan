@@ -15,7 +15,7 @@ from collections import namedtuple
 
 SZ = 1024
 
-def processArgs():
+def process_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_dir", required=True, help="where to put output files")
     parser.add_argument("--checkpoint", required=True, help="checkpoint directory or ckpt path (ex sharingan_checkpoints/model.ckpt-1001) to use for testing")
@@ -42,7 +42,7 @@ def save_last_node_name(node_name):
 
 def main():
 
-    a, hyper_params = processArgs()
+    a, hyper_params = process_args()
 
     tf.reset_default_graph()
 
