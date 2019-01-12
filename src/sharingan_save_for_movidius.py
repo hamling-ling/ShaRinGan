@@ -11,20 +11,28 @@ import os
 import inspect
 import json
 from sharingan_base import *
-import soundfile as sf
+from collections import namedtuple
 
 SZ = 1024
 
 def processArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_dir", required=True, help="where to put output files")
-    parser.add_argument("--checkpoint", required=True, help="directory with checkpoint to use for testing")
+    parser.add_argument("--checkpoint", required=True, help="checkpoint directory or ckpt path (ex sharingan_checkpoints/model.ckpt-1001) to use for testing")
+
     a = parser.parse_args()
 
     if not os.path.exists(a.output_dir):
         os.makedirs(a.output_dir)
 
-    return a
+    dir_cp = os.path.dirname(a.checkpoint)
+    filename = os.path.join(dir_cp, "hyper_params.json")
+    with open(filename) as fd:
+        json_str = fd.read()
+        print("hyper parameters=\n", json_str)
+        hyp = json.loads(json_str, object_hook=lambda d: namedtuple('HyperParams', d.keys())(*d.values()))
+
+    return a, hyp
 
 def save_last_node_name(node_name):
     f = open('last_node_name.txt', 'w')
@@ -34,7 +42,7 @@ def save_last_node_name(node_name):
 
 def main():
 
-    a = processArgs()
+    a, hyper_params = processArgs()
 
     tf.reset_default_graph()
 
@@ -42,19 +50,29 @@ def main():
 
         input = tf.placeholder("float", [1, 1, SZ, 1], name="input")
         with tf.variable_scope("generator"):
-            generator = create_generator(input, 1, is_training=False, is_fused=False)
+            generator = create_generator(generator_inputs           = input,
+                                         generator_outputs_channels = 1,
+                                         ngf                        = hyper_params.ngf,
+                                         is_training                = False,
+                                         is_fused                   = False)
             save_last_node_name(generator.name.split(":")[0])
 
-        print("loading model from checkpoint")
-        print("checkpoint loaded")
         saver = tf.train.Saver(tf.global_variables())
         print("saver created")
-        checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-        saver.restore(sess, checkpoint)
+
+        print("loading model from checkpoint")
+        if os.path.isdir(a.checkpoint):
+            print("restoring latest in ", a.checkpoint)
+            checkpoint = tf.train.latest_checkpoint(a.checkpoint)
+            saver.restore(sess, checkpoint)
+        else:
+            print("restoring from a file ", a.checkpoint)
+            saver.restore(sess, a.checkpoint)
         print("restored")
 
-        saver.save(sess, os.path.join(a.output_dir, "movidius.meta"))
-        print("saved")
+        outfile = os.path.join(a.output_dir, "movidius.meta")
+        saver.save(sess, outfile)
+        print("saved ", outfile)
 
         col = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='generator')
         for item in col:
