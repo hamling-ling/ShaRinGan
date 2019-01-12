@@ -69,10 +69,9 @@ def main():
         device.open()
 
         #Load graph
-        print("XXXXX ", a.graph)
         with open(a.graph, mode='rb') as f:
             graphfile_buffer = f.read()
-        
+
         graph = mvnc.Graph('graph1')
         input_fifo, output_fifo = graph.allocate_with_fifos(device, graphfile_buffer)
 
