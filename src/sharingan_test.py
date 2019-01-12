@@ -21,8 +21,10 @@ def process_args():
 
     a = parser.parse_args()
 
-    if not os.path.exists(a.output_dir):
-        os.makedirs(a.output_dir)
+    if(os.path.isdir(a.checkpoint)):
+        dir_cp = a.checkpoint
+    else:
+        dir_cp = os.path.dirname(a.checkpoint)
 
     dir_cp = os.path.dirname(a.checkpoint)
     filename = os.path.join(dir_cp, "hyper_params.json")
