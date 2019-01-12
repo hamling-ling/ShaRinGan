@@ -29,7 +29,7 @@ echo "################################"
 echo ""
 GRAPH_PATH=../data/output/movidius/graph
 rm -rf GRAPH_PATH
-mvNCCompile ../data/output/movidius/movidius.meta.meta -in=input -on $NODE_NAME -s 12 -o $GRAPH_PATH
+mvNCCompile ../data/output/movidius/movidius.meta -in=input -on $NODE_NAME -s 12 -o $GRAPH_PATH
 if [ $? -gt 0 ]; then
     echo "error: mvNCCompile failed"
     exit 1
