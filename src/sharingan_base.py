@@ -194,51 +194,53 @@ def create_generator(   generator_inputs,
 
     return layers[-1]
 
+def create_discriminator(discrim_inputs,
+                            discrim_targets,
+                            ndf,
+                            is_training = True,
+                            is_fused    = True):
+    n_layers = 5
+    layers = []
+
+    # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
+    input = tf.concat([discrim_inputs, discrim_targets], axis=3)
+
+    # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
+    with tf.variable_scope("layer_1"):
+        convolved = discrim_conv(input, ndf, stride=2)
+        #rectified = lrelu(convolved, 0.2)
+        rectified = tf.nn.leaky_relu(convolved)
+        layers.append(rectified)
+
+    # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
+    # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
+    # layer_4: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
+    # layer_5: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
+    # layer_6: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
+    for i in range(n_layers):
+        with tf.variable_scope("layer_%d" % (len(layers) + 1)):
+            out_channels = ndf * min(2**(i+1), 8)
+            stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
+            convolved = discrim_conv(layers[-1], out_channels, stride=stride)
+            normalized = batchnorm(convolved, is_training, is_fused=is_fused)
+            #rectified = lrelu(normalized, 0.2)
+            rectified = tf.nn.leaky_relu(normalized)
+            layers.append(rectified)
+
+    # layer_7: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
+    with tf.variable_scope("layer_%d" % (len(layers) + 1)):
+        convolved = discrim_conv(rectified, out_channels=1, stride=1)
+        output = tf.sigmoid(convolved)
+        layers.append(output)
+
+    return layers[-1]
+
 def create_model(inputs,
                  targets,
                  hyper_params,
                  is_training = True,
                  is_fused    = True):
-    def create_discriminator(discrim_inputs,
-                             discrim_targets,
-                             ndf,
-                             is_training = True,
-                             is_fused    = True):
-        n_layers = 5
-        layers = []
 
-        # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
-        input = tf.concat([discrim_inputs, discrim_targets], axis=3)
-
-        # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
-        with tf.variable_scope("layer_1"):
-            convolved = discrim_conv(input, ndf, stride=2)
-            #rectified = lrelu(convolved, 0.2)
-            rectified = tf.nn.leaky_relu(convolved)
-            layers.append(rectified)
-
-        # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
-        # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
-        # layer_4: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
-        # layer_5: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
-        # layer_6: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
-        for i in range(n_layers):
-            with tf.variable_scope("layer_%d" % (len(layers) + 1)):
-                out_channels = ndf * min(2**(i+1), 8)
-                stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
-                convolved = discrim_conv(layers[-1], out_channels, stride=stride)
-                normalized = batchnorm(convolved, is_training, is_fused=is_fused)
-                #rectified = lrelu(normalized, 0.2)
-                rectified = tf.nn.leaky_relu(normalized)
-                layers.append(rectified)
-
-        # layer_7: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
-        with tf.variable_scope("layer_%d" % (len(layers) + 1)):
-            convolved = discrim_conv(rectified, out_channels=1, stride=1)
-            output = tf.sigmoid(convolved)
-            layers.append(output)
-
-        return layers[-1]
 
     with tf.variable_scope("generator"):
         out_channels = int(targets.get_shape()[-1])
