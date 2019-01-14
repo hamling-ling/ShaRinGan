@@ -50,6 +50,8 @@ def main():
     tf.reset_default_graph()
 
     with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
         input = tf.placeholder("float", [1, 1, SZ, 1], name="input")
         with tf.variable_scope("generator"):
