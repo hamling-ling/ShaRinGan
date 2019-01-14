@@ -50,15 +50,23 @@ def gen_conv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
     initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides=(0,2)
-    return tf.layers.conv2d(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
-
+    return tf.layers.conv2d(batch_input,
+                            out_channels,
+                            kernel_size=[1,4],
+                            strides=(1, 2),
+                            padding="same",
+                            kernel_initializer=initializer)
 
 def gen_deconv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
     initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides to (0,2)
-    return tf.layers.conv2d_transpose(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
-
+    return tf.layers.conv2d_transpose(  batch_input,
+                                        out_channels,
+                                        kernel_size=[1,4],
+                                        strides=(1, 2),
+                                        padding="same",
+                                        kernel_initializer=initializer)
 
 def lrelu(x, a):
     with tf.name_scope("lrelu"):
