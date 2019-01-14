@@ -22,6 +22,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-12
 SZ = 1024
+TF_DTYPE = tf.float32
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
@@ -38,18 +39,23 @@ def discrim_conv(batch_input, out_channels, stride):
     ### [[0,0],[0,0],[1,1],[0,0]] => [b, h, w+2, c]
     padded_input = tf.pad(batch_input, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
     ### (0,stride)
-    return tf.layers.conv2d(padded_input, out_channels, kernel_size=[1,4], strides=(stride, stride), padding="valid", kernel_initializer=tf.random_normal_initializer(0, 0.02))
+    return tf.layers.conv2d(padded_input,
+                            out_channels,
+                            kernel_size=[1,4],
+                            strides=(stride, stride),
+                            padding="valid",
+                            kernel_initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE))
 
 def gen_conv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
-    initializer = tf.random_normal_initializer(0, 0.02)
+    initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides=(0,2)
     return tf.layers.conv2d(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
 
 
 def gen_deconv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
-    initializer = tf.random_normal_initializer(0, 0.02)
+    initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides to (0,2)
     return tf.layers.conv2d_transpose(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
 
@@ -67,7 +73,13 @@ def lrelu(x, a):
 
 
 def batchnorm(inputs, is_training, is_fused):
-    return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=is_training, fused=is_fused, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
+    return tf.layers.batch_normalization(inputs,
+                                         axis=3,
+                                         epsilon=1e-5,
+                                         momentum=0.1,
+                                         training=is_training,
+                                         fused=is_fused,
+                                         gamma_initializer=tf.random_normal_initializer(1.0, 0.02, dtype=TF_DTYPE))
 
 
 def load_examples(input_dir, batch_size, is_training=True):
@@ -90,6 +102,7 @@ def load_examples(input_dir, batch_size, is_training=True):
         paths, contents = reader.read(path_queue)
 
         raw_input = tf.decode_raw(contents, tf.float32)
+        raw_input = tf.cast(raw_input, TF_DTYPE)
         raw_input = tf.reshape(raw_input,[2,1,tf.constant(SZ),1])
 
         # break apart image pair and move to range [-1, 1]
