@@ -181,7 +181,7 @@ def create_generator(   generator_inputs,
             if is_training:
                 #dropout layer used only for training
                 if dropout > 0.0:
-                 output = tf.nn.dropout(output, keep_prob=1 - dropout)
+                    output = tf.nn.dropout(output, keep_prob=1 - dropout)
 
             layers.append(output)
 
