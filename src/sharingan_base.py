@@ -178,8 +178,10 @@ def create_generator(   generator_inputs,
             output = gen_deconv(rectified, out_channels)
             output = batchnorm(output, is_training, is_fused=is_fused)
 
-            if dropout > 0.0:
-                output = tf.nn.dropout(output, keep_prob=1 - dropout)
+            if is_training:
+                #dropout layer used only for training
+                if dropout > 0.0:
+                 output = tf.nn.dropout(output, keep_prob=1 - dropout)
 
             layers.append(output)
 
