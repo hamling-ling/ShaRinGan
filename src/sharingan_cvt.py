@@ -12,7 +12,7 @@ from sharingan_base import *
 import soundfile as sf
 from collections import namedtuple
 
-def processArgs():
+def process_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", help="path to folder containing images")
     parser.add_argument("--output_dir", required=True, help="where to put output files")
@@ -22,8 +22,10 @@ def processArgs():
 
     a = parser.parse_args()
 
-    if not os.path.exists(a.output_dir):
-        os.makedirs(a.output_dir)
+    if(os.path.isdir(a.checkpoint)):
+        dir_cp = a.checkpoint
+    else:
+        dir_cp = os.path.dirname(a.checkpoint)
 
     dir_cp = os.path.dirname(a.checkpoint)
     filename = os.path.join(dir_cp, "hyper_params.json")
@@ -36,18 +38,22 @@ def processArgs():
 
 
 def main():
-
-    a, hyper_params = processArgs()
+    a, hyper_params = process_args()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)
 
     # inputs and targets are [batch_size, height, width, channels]
-    model = create_model(examples.inputs, examples.targets, hyper_params, is_training=False)
+    with tf.variable_scope("generator"):
+        model = create_generator(generator_inputs           = examples.inputs,
+                                generator_outputs_channels = 1,
+                                ngf                        = hyper_params.ngf,
+                                is_training                = False,
+                                is_fused                   = False)
 
     inputs = examples.inputs
     targets = examples.targets
-    outputs = model.outputs
+    outputs = model
 
     with tf.name_scope("encode_images"):
         display_fetches = {
@@ -62,13 +68,6 @@ def main():
 
     server = tf.train.Server.create_local_server()
     saver = tf.train.Saver()
-
-    tensors_to_log = {
-        "d_loss": "discriminator_loss/discrim_loss",
-        "g_loss_GAN":"generator_loss/gen_loss_GAN",
-        "g_loss_L1":"generator_loss/gen_loss_L1"
-    }
-    logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=1)
 
     max_steps = a.max_steps
     if(max_steps is None):
@@ -115,7 +114,7 @@ def main():
 
                 counter = counter + 1
         except tf.errors.OutOfRangeError:
-            print('Done training -- epoch limit reached')
+            print('Done converting -- epoch limit reached')
         finally:
             coord.request_stop()
             coord.join(threads)
@@ -124,6 +123,7 @@ def main():
         fn_target = os.path.join(a.output_dir, "target.wav")
         fn_output = os.path.join(a.output_dir, "output.wav")
 
+        os.makedirs(a.output_dir, exist_ok=True)
         sf.write(fn_input, wave_in, 44100)
         print(fn_input, " saved")
         sf.write(fn_target, wave_tgt, 44100)

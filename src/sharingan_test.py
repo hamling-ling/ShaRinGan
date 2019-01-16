@@ -11,7 +11,7 @@ import json
 from sharingan_base import *
 from collections import namedtuple
 
-def processArgs():
+def process_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_dir", help="path to folder containing images")
     parser.add_argument("--output_dir", required=True, help="where to put output files")
@@ -21,8 +21,10 @@ def processArgs():
 
     a = parser.parse_args()
 
-    if not os.path.exists(a.output_dir):
-        os.makedirs(a.output_dir)
+    if(os.path.isdir(a.checkpoint)):
+        dir_cp = a.checkpoint
+    else:
+        dir_cp = os.path.dirname(a.checkpoint)
 
     dir_cp = os.path.dirname(a.checkpoint)
     filename = os.path.join(dir_cp, "hyper_params.json")
@@ -35,7 +37,7 @@ def processArgs():
 
 def main():
 
-    a, hyper_params = processArgs()
+    a, hyper_params = process_args()
 
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)

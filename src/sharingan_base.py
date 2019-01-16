@@ -22,6 +22,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-12
 SZ = 1024
+TF_DTYPE = tf.float32
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
@@ -38,36 +39,43 @@ def discrim_conv(batch_input, out_channels, stride):
     ### [[0,0],[0,0],[1,1],[0,0]] => [b, h, w+2, c]
     padded_input = tf.pad(batch_input, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
     ### (0,stride)
-    return tf.layers.conv2d(padded_input, out_channels, kernel_size=[1,4], strides=(stride, stride), padding="valid", kernel_initializer=tf.random_normal_initializer(0, 0.02))
+    return tf.layers.conv2d(padded_input,
+                            out_channels,
+                            kernel_size=[1,4],
+                            strides=(stride, stride),
+                            padding="valid",
+                            kernel_initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE))
 
 def gen_conv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
-    initializer = tf.random_normal_initializer(0, 0.02)
+    initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides=(0,2)
-    return tf.layers.conv2d(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
-
+    return tf.layers.conv2d(batch_input,
+                            out_channels,
+                            kernel_size=[1,4],
+                            strides=(1, 2),
+                            padding="same",
+                            kernel_initializer=initializer)
 
 def gen_deconv(batch_input, out_channels):
     # [batch, in_height, in_width, in_channels] => [batch, out_height, out_width, out_channels]
-    initializer = tf.random_normal_initializer(0, 0.02)
+    initializer = tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE)
     ### strides to (0,2)
-    return tf.layers.conv2d_transpose(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
-
-
-def lrelu(x, a):
-    with tf.name_scope("lrelu"):
-        # adding these together creates the leak part and linear part
-        # then cancels them out by subtracting/adding an absolute value term
-        # leak: a*x/2 - a*abs(x)/2
-        # linear: x/2 + abs(x)/2
-
-        # this block looks like it has 2 inputs on the graph unless we do this
-        x = tf.identity(x)
-        return (0.5 * (1 + a)) * x + (0.5 * (1 - a)) * tf.abs(x)
-
+    return tf.layers.conv2d_transpose(  batch_input,
+                                        out_channels,
+                                        kernel_size=[1,4],
+                                        strides=(1, 2),
+                                        padding="same",
+                                        kernel_initializer=initializer)
 
 def batchnorm(inputs, is_training, is_fused):
-    return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=is_training, fused=is_fused, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
+    return tf.layers.batch_normalization(inputs,
+                                         axis=3,
+                                         epsilon=1e-5,
+                                         momentum=0.1,
+                                         training=is_training,
+                                         fused=is_fused,
+                                         gamma_initializer=tf.random_normal_initializer(1.0, 0.02, dtype=TF_DTYPE))
 
 
 def load_examples(input_dir, batch_size, is_training=True):
@@ -90,6 +98,7 @@ def load_examples(input_dir, batch_size, is_training=True):
         paths, contents = reader.read(path_queue)
 
         raw_input = tf.decode_raw(contents, tf.float32)
+        raw_input = tf.cast(raw_input, TF_DTYPE)
         raw_input = tf.reshape(raw_input,[2,1,tf.constant(SZ),1])
 
         # break apart image pair and move to range [-1, 1]
@@ -143,7 +152,6 @@ def create_generator(   generator_inputs,
 
     for out_channels in layer_specs:
         with tf.variable_scope("encoder_%d" % (len(layers) + 1)):
-            #rectified = lrelu(layers[-1], 0.2)
             rectified = tf.nn.leaky_relu(layers[-1])
             # [batch, in_height, in_width, in_channels] => [batch, in_height, in_width/2, out_channels]
             convolved = gen_conv(rectified, out_channels)
@@ -178,8 +186,10 @@ def create_generator(   generator_inputs,
             output = gen_deconv(rectified, out_channels)
             output = batchnorm(output, is_training, is_fused=is_fused)
 
-            if dropout > 0.0:
-                output = tf.nn.dropout(output, keep_prob=1 - dropout)
+            if is_training:
+                #dropout layer used only for training
+                if dropout > 0.0:
+                    output = tf.nn.dropout(output, keep_prob=1 - dropout)
 
             layers.append(output)
 
@@ -194,51 +204,51 @@ def create_generator(   generator_inputs,
 
     return layers[-1]
 
+def create_discriminator(discrim_inputs,
+                            discrim_targets,
+                            ndf,
+                            is_training = True,
+                            is_fused    = True):
+    n_layers = 5
+    layers = []
+
+    # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
+    input = tf.concat([discrim_inputs, discrim_targets], axis=3)
+
+    # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
+    with tf.variable_scope("layer_1"):
+        convolved = discrim_conv(input, ndf, stride=2)
+        rectified = tf.nn.leaky_relu(convolved)
+        layers.append(rectified)
+
+    # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
+    # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
+    # layer_4: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
+    # layer_5: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
+    # layer_6: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
+    for i in range(n_layers):
+        with tf.variable_scope("layer_%d" % (len(layers) + 1)):
+            out_channels = ndf * min(2**(i+1), 8)
+            stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
+            convolved = discrim_conv(layers[-1], out_channels, stride=stride)
+            normalized = batchnorm(convolved, is_training, is_fused=is_fused)
+            rectified = tf.nn.leaky_relu(normalized)
+            layers.append(rectified)
+
+    # layer_7: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
+    with tf.variable_scope("layer_%d" % (len(layers) + 1)):
+        convolved = discrim_conv(rectified, out_channels=1, stride=1)
+        output = tf.sigmoid(convolved)
+        layers.append(output)
+
+    return layers[-1]
+
 def create_model(inputs,
                  targets,
                  hyper_params,
                  is_training = True,
                  is_fused    = True):
-    def create_discriminator(discrim_inputs,
-                             discrim_targets,
-                             ndf,
-                             is_training = True,
-                             is_fused    = True):
-        n_layers = 5
-        layers = []
 
-        # 2x [batch, height, width, in_channels] => [batch, height, width, in_channels * 2]
-        input = tf.concat([discrim_inputs, discrim_targets], axis=3)
-
-        # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
-        with tf.variable_scope("layer_1"):
-            convolved = discrim_conv(input, ndf, stride=2)
-            #rectified = lrelu(convolved, 0.2)
-            rectified = tf.nn.leaky_relu(convolved)
-            layers.append(rectified)
-
-        # layer_2: [batch, 1, 512, ndf] => [batch, 1, 256, ndf * 2]
-        # layer_3: [batch, 1, 256, ndf * 2] => [batch, 1, 128, ndf * 4]
-        # layer_4: [batch, 1, 128, ndf * 2] => [batch, 1, 64, ndf * 4]
-        # layer_5: [batch, 1, 64, ndf * 2] => [batch, 1, 32, ndf * 4]
-        # layer_6: [batch, 1, 32, ndf * 4] => [batch, 1, 31, ndf * 8]
-        for i in range(n_layers):
-            with tf.variable_scope("layer_%d" % (len(layers) + 1)):
-                out_channels = ndf * min(2**(i+1), 8)
-                stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
-                convolved = discrim_conv(layers[-1], out_channels, stride=stride)
-                normalized = batchnorm(convolved, is_training, is_fused=is_fused)
-                #rectified = lrelu(normalized, 0.2)
-                rectified = tf.nn.leaky_relu(normalized)
-                layers.append(rectified)
-
-        # layer_7: [batch, 1, 31, ndf * 8] => [batch, 1, 30, 1]
-        with tf.variable_scope("layer_%d" % (len(layers) + 1)):
-            convolved = discrim_conv(rectified, out_channels=1, stride=1)
-            output = tf.sigmoid(convolved)
-            layers.append(output)
-
-        return layers[-1]
 
     with tf.variable_scope("generator"):
         out_channels = int(targets.get_shape()[-1])
