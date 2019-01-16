@@ -53,22 +53,8 @@ def gen_deconv(batch_input, out_channels):
     ### strides to (0,2)
     return tf.layers.conv2d_transpose(batch_input, out_channels, kernel_size=[1,4], strides=(1, 2), padding="same", kernel_initializer=initializer)
 
-
-def lrelu(x, a):
-    with tf.name_scope("lrelu"):
-        # adding these together creates the leak part and linear part
-        # then cancels them out by subtracting/adding an absolute value term
-        # leak: a*x/2 - a*abs(x)/2
-        # linear: x/2 + abs(x)/2
-
-        # this block looks like it has 2 inputs on the graph unless we do this
-        x = tf.identity(x)
-        return (0.5 * (1 + a)) * x + (0.5 * (1 - a)) * tf.abs(x)
-
-
 def batchnorm(inputs, is_training, is_fused):
     return tf.layers.batch_normalization(inputs, axis=3, epsilon=1e-5, momentum=0.1, training=is_training, fused=is_fused, gamma_initializer=tf.random_normal_initializer(1.0, 0.02))
-
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
@@ -143,7 +129,6 @@ def create_generator(   generator_inputs,
 
     for out_channels in layer_specs:
         with tf.variable_scope("encoder_%d" % (len(layers) + 1)):
-            #rectified = lrelu(layers[-1], 0.2)
             rectified = tf.nn.leaky_relu(layers[-1])
             # [batch, in_height, in_width, in_channels] => [batch, in_height, in_width/2, out_channels]
             convolved = gen_conv(rectified, out_channels)
@@ -213,7 +198,6 @@ def create_model(inputs,
         # layer_1: [batch, 1, 1024, in_channels * 2] => [batch, 1, 512, ndf]
         with tf.variable_scope("layer_1"):
             convolved = discrim_conv(input, ndf, stride=2)
-            #rectified = lrelu(convolved, 0.2)
             rectified = tf.nn.leaky_relu(convolved)
             layers.append(rectified)
 
@@ -228,7 +212,6 @@ def create_model(inputs,
                 stride = 1 if i == n_layers - 1 else 2  # last layer here has stride 1
                 convolved = discrim_conv(layers[-1], out_channels, stride=stride)
                 normalized = batchnorm(convolved, is_training, is_fused=is_fused)
-                #rectified = lrelu(normalized, 0.2)
                 rectified = tf.nn.leaky_relu(normalized)
                 layers.append(rectified)
 
