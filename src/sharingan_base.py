@@ -34,42 +34,6 @@ def location(depth=0):
     func = frame.f_code.co_name
     line = frame.f_lineno
     return "{0}:{1}:{2}".format(file,func,line)
-'''
-def batch_norm(inputs, phase_train=None, decay=0.99):
-  print("inputs=", inputs.get_shape())
-  eps = 1e-5
-  out_dim = inputs.get_shape()[-1]
-  scale = tf.Variable(tf.ones([out_dim]), name="scale")
-  beta = tf.Variable(tf.zeros([out_dim]), name="beta")
-  pop_mean = tf.Variable(tf.zeros([out_dim]), trainable=False)
-  pop_var = tf.Variable(tf.ones([out_dim]), trainable=False)
-
-  if phase_train == False:
-    return tf.nn.batch_normalization(inputs, pop_mean, pop_var, beta, scale, eps)
-
-  batch_mean, batch_var = tf.nn.moments(inputs, [0,1,2])
-
-  ema = tf.train.ExponentialMovingAverage(decay=decay)
-
-  def update():  # Update ema.
-    with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
-      ema_apply_op = ema.apply([batch_mean, batch_var])
-      with tf.control_dependencies([ema_apply_op]):
-        return tf.nn.batch_normalization(inputs, tf.identity(batch_mean), tf.identity(batch_var), beta, scale, eps)
-  def average():  # Use avarage of ema.
-    print("average!!!")
-    print("batch_meah=", batch_mean.get_shape())
-    #print("ema.average(batch_mean)=", ema.average([batch_mean]).get_shape())
-    train_mean = pop_mean.assign(ema.average(batch_mean))
-    train_var = pop_var.assign(ema.average(batch_var))
-    with tf.control_dependencies(train_mean, train_var):
-        return tf.nn.batch_normalization(inputs, train_mean, train_var, beta, scale, eps)
-
-  if phase_train:
-    return update()
-  else:
-    return average()
-'''
 
 def batch_norm(inputs, is_training, decay = 0.9):
     eps = 1e-5
@@ -418,8 +382,6 @@ def create_model(inputs,
                  hyper_params,
                  is_training = True,
                  is_fused    = True):
-
-
     with tf.variable_scope("generator"):
         out_channels = int(targets.get_shape()[-1])
         outputs = create_generator(generator_inputs           = inputs,
