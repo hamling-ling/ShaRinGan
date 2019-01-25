@@ -36,11 +36,11 @@ def location(depth=0):
     return "{0}:{1}:{2}".format(file,func,line)
 
 def batch_norm(inputs, is_training, decay = 0.9):
-    eps = 1e-5
-    scale = tf.Variable(tf.ones([inputs.get_shape()[-1]]))
-    beta = tf.Variable(tf.zeros([inputs.get_shape()[-1]]))
-    pop_mean = tf.Variable(tf.zeros([inputs.get_shape()[-1]]), trainable=False)
-    pop_var = tf.Variable(tf.ones([inputs.get_shape()[-1]]), trainable=False)
+    eps = tf.constant(1e-5, dtype=TF_DTYPE)
+    scale = tf.Variable(tf.ones([inputs.get_shape()[-1]], dtype=TF_DTYPE))
+    beta = tf.Variable(tf.zeros([inputs.get_shape()[-1]], dtype=TF_DTYPE))
+    pop_mean = tf.Variable(tf.zeros([inputs.get_shape()[-1]], dtype=TF_DTYPE), trainable=False)
+    pop_var = tf.Variable(tf.ones([inputs.get_shape()[-1]], dtype=TF_DTYPE), trainable=False)
 
     if is_training:
         batch_mean, batch_var = tf.nn.moments(inputs,[0,1,2])
@@ -69,7 +69,7 @@ def deconv_shape(input, channels_scale, out_channels=None):
   return output_shape
 
 def create_w(shape, name):
-  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE), dtype=tf.float32)
+  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE), dtype=TF_DTYPE)
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
@@ -149,39 +149,39 @@ def create_generator(   generator_inputs,
   #encooder_1
   e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
   #encoder_2
-  out = tf.nn.leaky_relu(e01)
+  out = tf.nn.leaky_relu(e01, alpha=tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
   e02 = batch_norm(out, is_training)
   #encoder_3
-  out = tf.nn.leaky_relu(e02)
+  out = tf.nn.leaky_relu(e02, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
   e03 = batch_norm(out, is_training)
   #encoder_4
-  out = tf.nn.leaky_relu(e03)
+  out = tf.nn.leaky_relu(e03, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
   e04 = batch_norm(out, is_training)
   #encoder_5
-  out = tf.nn.leaky_relu(e04)
+  out = tf.nn.leaky_relu(e04, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
   e05 = batch_norm(out, is_training)
   #encoder_6
-  out = tf.nn.leaky_relu(e05)
+  out = tf.nn.leaky_relu(e05, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
   e06 = batch_norm(out, is_training)
   #encoder_7
-  out = tf.nn.leaky_relu(e06)
+  out = tf.nn.leaky_relu(e06, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
   e07 = batch_norm(out, is_training)
   #encoder_8
-  out = tf.nn.leaky_relu(e07)
+  out = tf.nn.leaky_relu(e07, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
   e08 = batch_norm(out, is_training)
   #encoder_9
-  out = tf.nn.leaky_relu(e08)
+  out = tf.nn.leaky_relu(e08, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
   e09 = batch_norm(out, is_training)
   #encoder_10
-  out = tf.nn.leaky_relu(e09)
+  out = tf.nn.leaky_relu(e09, tf.constant(0.2, dtype=TF_DTYPE))
   out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
   e10 = batch_norm(out, is_training)
 
@@ -326,7 +326,7 @@ def create_discriminator(   discrim_inputs,
   print("dis1 conv2d in =", out.get_shape(), ", w01=", dis_w01.get_shape())
   out = tf.nn.conv2d( out, dis_w01, strides=(1,1,2,1), padding="SAME")
   print("dis1 conv2d out=", out.get_shape())
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_2: [b, 1, 513, ndf] => [b, 1, 515, ndf] => [b, 1, 258, ndf * 2]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
@@ -334,7 +334,7 @@ def create_discriminator(   discrim_inputs,
   out = tf.nn.conv2d( out, dis_w02, strides=(1,1,2,1), padding="SAME")
   print("dis2 conv2d out=", out.get_shape())
   out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_3: [b, 1, 258, ndf * 2] => [b, 1, 260, ndf * 2]  => [b, 1, 130, ndf * 4]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
@@ -342,7 +342,7 @@ def create_discriminator(   discrim_inputs,
   out = tf.nn.conv2d( out, dis_w03, strides=(1,1,2,1), padding="SAME")
   print("dis3 conv2d out=", out.get_shape())
   out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_4: [b, 1, 130, ndf * 2] => [b, 1, 132, ndf * 2] => [b, 1, 66, ndf * 4]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
@@ -350,7 +350,7 @@ def create_discriminator(   discrim_inputs,
   out = tf.nn.conv2d( out, dis_w04, strides=(1,1,2,1), padding="SAME")
   print("dis4 conv2d out=", out.get_shape())
   out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_5: [b, 1, 66, ndf * 2] => [b, 1, 68, ndf * 2] => [b, 1, 34, ndf * 4]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
@@ -358,7 +358,7 @@ def create_discriminator(   discrim_inputs,
   out = tf.nn.conv2d( out, dis_w05, strides=(1,1,2,1), padding="SAME")
   print("dis5 conv2d out=", out.get_shape())
   out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_6: [b, 1, 34, ndf * 4] => [b, 1, 36, ndf * 4] => [b, 1, 33, ndf * 8]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
@@ -366,7 +366,7 @@ def create_discriminator(   discrim_inputs,
   out = tf.nn.conv2d( out, dis_w06, strides=(1,1,1,1), padding="SAME")
   print("dis6 conv2d out=", out.get_shape())
   out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
 
   # layer_7: [b, 1, 36, ndf * 8] => [b, 1, 38, ndf * 4] => [b, 1, 38, 1]
   out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
