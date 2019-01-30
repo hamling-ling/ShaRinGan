@@ -8,11 +8,11 @@ echo CHECK_POINT_OPT=$INPUT_DIR_OPT
 
 python sharingan_train.py \
   --output_dir "../data/output/pretrained_model" \
-  --max_epochs 200 \
-  --lr 0.001 \
+  --max_epochs 600 \
+  --lr 0.00001 \
   --ngf 32 \
   --ndf 32 \
-  --batch_size 512 \
+  --batch_size 128 \
   --input_dir "../data/input/training"
 
 
