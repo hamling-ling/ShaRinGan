@@ -20,7 +20,7 @@ from abc import ABCMeta, abstractmethod
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-EPS = 1e-12
+EPS = 1e-5
 SZ = 1024
 TF_DTYPE = tf.float32
 
@@ -61,7 +61,7 @@ def deconv_shape(input, channels_scale, out_channels=None):
     out_channels = int(int(input.get_shape()[-1]) * channels_scale)
   
   input_size_h = 1 #input.get_shape().as_list()[1]
-  input_size_w = int(input.get_shape().as_list()[2] * 2)
+  input_size_w = int(input.get_shape().as_list()[2] * 4)
   output_shape = tf.stack([tf.shape(input)[0], 
                            input_size_h,
                            input_size_w,
@@ -69,7 +69,7 @@ def deconv_shape(input, channels_scale, out_channels=None):
   return output_shape
 
 def create_w(shape, name):
-  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE), dtype=TF_DTYPE)
+  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.5, dtype=TF_DTYPE), dtype=TF_DTYPE)
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
@@ -124,182 +124,92 @@ def create_generator(   generator_inputs,
                         is_training,
                         is_fused):
   # generator encoder filter [h, w, in ch, out ch]
-  gen_w01 = create_w(shape=[1, 4,       1, ngf * 1], name="gen_w01")
-  gen_w02 = create_w(shape=[1, 4, ngf * 1, ngf * 1], name="gen_w02")
-  gen_w03 = create_w(shape=[1, 4, ngf * 1, ngf * 2], name="gen_w03")
-  gen_w04 = create_w(shape=[1, 4, ngf * 2, ngf * 2], name="gen_w04")
-  gen_w05 = create_w(shape=[1, 4, ngf * 2, ngf * 4], name="gen_w05")
-  gen_w06 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w06")
-  gen_w07 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w07")
-  gen_w08 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w08")
-  gen_w09 = create_w(shape=[1, 4, ngf * 4, ngf * 8], name="gen_w09")
-  gen_w10 = create_w(shape=[1, 4, ngf * 8, ngf * 8], name="gen_w10")
+  gen_w01 = create_w(shape=[1, 8,       1, ngf *  1], name="gen_w01") #1ch  -> 4ch
+  gen_w02 = create_w(shape=[1, 8, ngf * 1, ngf *  2], name="gen_w02") #4ch  -> 8ch
+  gen_w03 = create_w(shape=[1, 8, ngf * 2, ngf *  4], name="gen_w03") #8ch  -> 16ch
+  gen_w04 = create_w(shape=[1, 8, ngf * 4, ngf *  8], name="gen_w04") #16ch -> 32ch
+  gen_w05 = create_w(shape=[1, 8, ngf * 8, ngf * 16], name="gen_w05") #32ch -> 64ch
   # generator decoder filter [h, w, out ch, in ch] ... in and out are reversed!
-  gen_w11 = create_w(shape=[1, 4, ngf * 8 * 1, ngf * 8 * 1], name="gen_w11") #128=>128
-  gen_w12 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 8 * 2], name="gen_w12") #256=>64
-  gen_w13 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w13") #128=>64
-  gen_w14 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w14") #128=>64
-  gen_w15 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w15") #128=>64
-  gen_w16 = create_w(shape=[1, 4, ngf * 2 * 1, ngf * 4 * 2], name="gen_w16") #128=>32
-  gen_w17 = create_w(shape=[1, 4, ngf * 2 * 1, ngf * 2 * 2], name="gen_w17") #128=>32
-  gen_w18 = create_w(shape=[1, 4, ngf * 1 * 1, ngf * 2 * 2], name="gen_w18") #64=>16
-  gen_w19 = create_w(shape=[1, 4, ngf * 1 * 1, ngf * 1 * 2], name="gen_w19") #32=>16
-  gen_w20 = create_w(shape=[1, 4,           1, ngf * 1 * 2], name="gen_w20") #32=>1
+  gen_w11 = create_w(shape=[1, 8, ngf * 1 * 8, ngf * 1 * 16], name="gen_w11") #64ch -> 32ch
+  gen_w12 = create_w(shape=[1, 8, ngf * 1 * 4, ngf * 2 *  8], name="gen_w12") #64ch  -> 16ch
+  gen_w13 = create_w(shape=[1, 8, ngf * 1 * 2, ngf * 2 *  4], name="gen_w13") #32ch  -> 8ch
+  gen_w14 = create_w(shape=[1, 8, ngf * 1 * 1, ngf * 2 *  2], name="gen_w14") #16ch  -> 4ch
+  gen_w15 = create_w(shape=[1, 8,           1, ngf * 2 *  1], name="gen_w15") #8ch   -> 1ch
   
   #encooder_1
-  e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
+  out = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,4,1), padding="SAME")
+  e01 = batch_norm(out, is_training)
   #encoder_2
   out = tf.nn.leaky_relu(e01, alpha=tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
+  out = tf.nn.conv2d( out, gen_w02, strides=(1,1,4,1), padding="SAME")
   e02 = batch_norm(out, is_training)
   #encoder_3
   out = tf.nn.leaky_relu(e02, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
+  out = tf.nn.conv2d( out, gen_w03, strides=(1,1,4,1), padding="SAME")
   e03 = batch_norm(out, is_training)
   #encoder_4
   out = tf.nn.leaky_relu(e03, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
+  out = tf.nn.conv2d( out, gen_w04, strides=(1,1,4,1), padding="SAME")
   e04 = batch_norm(out, is_training)
   #encoder_5
   out = tf.nn.leaky_relu(e04, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
+  out = tf.nn.conv2d( out, gen_w05, strides=(1,1,4,1), padding="SAME")
   e05 = batch_norm(out, is_training)
-  #encoder_6
-  out = tf.nn.leaky_relu(e05, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
-  e06 = batch_norm(out, is_training)
-  #encoder_7
-  out = tf.nn.leaky_relu(e06, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
-  e07 = batch_norm(out, is_training)
-  #encoder_8
-  out = tf.nn.leaky_relu(e07, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
-  e08 = batch_norm(out, is_training)
-  #encoder_9
-  out = tf.nn.leaky_relu(e08, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
-  e09 = batch_norm(out, is_training)
-  #encoder_10
-  out = tf.nn.leaky_relu(e09, tf.constant(0.2, dtype=TF_DTYPE))
-  out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
-  e10 = batch_norm(out, is_training)
 
-  print("e01", e01.get_shape()) # [b, 1, 512, 16]
-  print("e02", e02.get_shape()) # [b, 1, 256, 16]
-  print("e03", e03.get_shape()) # [b, 1, 128, 32]
-  print("e04", e04.get_shape()) # [b, 1, 64,  32]
-  print("e05", e05.get_shape()) # [b, 1, 32,  64]
-  print("e06", e06.get_shape()) # [b, 1, 16,  64]
-  print("e07", e07.get_shape()) # [b, 1, 8,   64]
-  print("e08", e08.get_shape()) # [b, 1, 4,   64]
-  print("e09", e09.get_shape()) # [b, 1, 2,  128]
-  print("e10", e10.get_shape()) # [b, 1, 1,  128]
+  print("e01", e01.get_shape()) # [b, 1, 256, 4]
+  print("e02", e02.get_shape()) # [b, 1, 64,  8]
+  print("e03", e03.get_shape()) # [b, 1, 16, 16]
+  print("e04", e04.get_shape()) # [b, 1, 4,  32]
+  print("e05", e05.get_shape()) # [b, 1, 1,  64]
 
-  #decoder_1 [b, 1, 1, 128] => [b, 1, 2, 128]
-  out = tf.nn.relu(e10)
-  out_shape=deconv_shape(out, 1.0)
+  #decoder_1 [b, 1, 1, 64] => [b, 1, 4, 32]
+  out = tf.nn.relu(e05)
+  out_shape=deconv_shape(out, 0.5)
   print("d1 deconv2d input=", out.get_shape(), "w11=", gen_w11.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w11, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
+  out = tf.nn.conv2d_transpose(out, gen_w11, strides=(1,1,4,1), output_shape=out_shape, padding="SAME")
   print("d1 deconv2d output=", out.get_shape())
   out = batch_norm(out, is_training)
   if(is_training):
     out = tf.nn.dropout(out, keep_prob=1 - 0.5)
 
-  #decoder_2 [b, 1, 2, 128] => [b, 1, 2, 256] => [b, 1, 4, 64]
-  out = tf.concat([out, e09], axis=3)
-  print("d2 concatting ", out.get_shape(), " + ", e09.get_shape())
+  #decoder_2 [b, 1, 4, 32] => [b, 1, 4, 64] => [b, 1, 16, 16]
+  print("d2 concatting ", out.get_shape(), " + ", e04.get_shape())
+  out = tf.concat([out, e04], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.25)
   print("d2 deconv2d input=", out.get_shape(), "w12=", gen_w12.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w12, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
+  out = tf.nn.conv2d_transpose(out, gen_w12, strides=(1,1,4,1), output_shape=out_shape, padding="SAME")
   print("d2 deconv2d output=", out.get_shape())
   out = batch_norm(out, is_training)
-  if(is_training):
-    out = tf.nn.dropout(out, keep_prob=1 - 0.5)
 
-  #decoder_3 [b, 1, 4, 64] => [b, 1, 4, 128] => [b, 1, 8, 64]
-  print("d3 concatting ", out.get_shape(), " + ", e08.get_shape())
-  out = tf.concat([out, e08], axis=3)
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d3 deconv2d input=", out.get_shape(), "w13=", gen_w13.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w13, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d3 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-  if(is_training):
-    out = tf.nn.dropout(out, keep_prob=1 - 0.5)
-
-  #decoder_4 [b, 1, 8, 64] => [b, 1, 8, 128] => [b, 1, 16, 64]
-  out = tf.concat([out, e07], axis=3)
-  print("d4 concatting ", out.get_shape(), " + ", e07.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d4 deconv2d input=", out.get_shape(), "w14=", gen_w14.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w14, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d4 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-
-  #decoder_5 [b, 1, 16, 64] => [b, 1, 16, 128] => [b, 1, 32, 64]
-  out = tf.concat([out, e06], axis=3)
-  print("d5 concatting ", out.get_shape(), " + ", e06.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d5 deconv2d input=", out.get_shape(), "w15=", gen_w15.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w15, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d5 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-
-  #decoder_6 [b, 1, 32, 64] => [b, 1, 32, 128] => [b, 1, 64, 32]
-  out = tf.concat([out, e05], axis=3)
-  print("d6 concatting ", out.get_shape(), " + ", e05.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.25)
-  print("d6 deconv2d input=", out.get_shape(), "w16=", gen_w16.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w16, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d6 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-
-  #decoder_7 [b, 1, 64, 32] => [b, 1, 64, 64] => [b, 1, 128, 32]
-  out = tf.concat([out, e04], axis=3)
-  print("d7 deconcatting ", out.get_shape(), " + ", e04.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d7 deconv2d input=", out.get_shape(), "w17=", gen_w17.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w17, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d7 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-
-  #decoder_8 [b, 1, 128, 32] => [b, 1, 128, 64] => [b, 1, 256, 16]
-  print("d8 concatting ", out.get_shape(), " + ", e03.get_shape())
+  #decoder_3 [b, 1, 16, 16] => [b, 1, 16, 32] => [b, 1, 64, 8]
+  print("d3 concatting ", out.get_shape(), " + ", e03.get_shape())
   out = tf.concat([out, e03], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.25)
-  print("out_shape=", out_shape)
-  print("d8 deconv2d input=", out.get_shape(), "w18=", gen_w18.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w18, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv8")
-  print("d8 deconv2d output=", out.get_shape())
+  print("d3 deconv2d input=", out.get_shape(), "w13=", gen_w13.get_shape())
+  out = tf.nn.conv2d_transpose(out, gen_w13, strides=(1,1,4,1), output_shape=out_shape, padding="SAME")
+  print("d3 deconv2d output=", out.get_shape())
   out = batch_norm(out, is_training)
 
-  #decoder_9 [b, 1, 256, 16] => [b, 1, 256, 32] => [b, 1, 512, 16]
-  print("d9 concatting ", out.get_shape(), " + ", e02.get_shape())
+  #decoder_4 [b, 1, 64, 8] => [b, 1, 64, 16] => [b, 1, 256, 4]
+  print("d4 concatting ", out.get_shape(), " + ", e02.get_shape())
   out = tf.concat([out, e02], axis=3)
   out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("out_shape=", out_shape)
-  print("d9 deconv2d input=", out.get_shape(), "w19=", gen_w19.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w19, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv9")
-  print("d9 deconv2d output=", out.get_shape())
+  out_shape=deconv_shape(out, 0.25)
+  print("d4 deconv2d input=", out.get_shape(), "w14=", gen_w14.get_shape())
+  out = tf.nn.conv2d_transpose(out, gen_w14, strides=(1,1,4,1), output_shape=out_shape, padding="SAME")
+  print("d4 deconv2d output=", out.get_shape())
   out = batch_norm(out, is_training)
 
-  #decoder_10 [b, 1, 512, 16] => [b, 1, 512, 32] => [b, 1, 512, 1]
-  print("d10 concatting ", out.get_shape(), " + ", e01.get_shape())
+  #decoder_5 [b, 1, 256, 4] => [b, 1, 256, 8] => [b, 1, 1024, 1]
+  print("d5 concatting ", out.get_shape(), " + ", e01.get_shape())
   out = tf.concat([out, e01], axis=3)
   out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.0, 1) #[b, 1, 2*512, 1)
-  print("d10 deconv2d input=", out.get_shape(), "w20=", gen_w20.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w20, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv10")
-  print("d10 deconv2d output=", out.get_shape())
+  out_shape=deconv_shape(out, 0.0, out_channels=1)
+  print("d5 deconv2d input=", out.get_shape(), "w15=", gen_w15.get_shape())
+  out = tf.nn.conv2d_transpose(out, gen_w15, strides=(1,1,4,1), output_shape=out_shape, padding="SAME")
+  print("d5 deconv2d output=", out.get_shape())
   out = tf.tanh(out)
 
   return out
@@ -425,14 +335,14 @@ def create_model(inputs,
 
     with tf.name_scope("discriminator_train"):
         discrim_tvars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
-        discrim_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1)
+        discrim_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1, epsilon=EPS)
         discrim_grads_and_vars = discrim_optim.compute_gradients(discrim_loss, var_list=discrim_tvars)
         discrim_train = discrim_optim.apply_gradients(discrim_grads_and_vars)
 
     with tf.name_scope("generator_train"):
         with tf.control_dependencies([discrim_train]):
             gen_tvars = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
-            gen_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1)
+            gen_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1, epsilon=EPS)
             gen_grads_and_vars = gen_optim.compute_gradients(gen_loss, var_list=gen_tvars)
             gen_train = gen_optim.apply_gradients(gen_grads_and_vars)
 
