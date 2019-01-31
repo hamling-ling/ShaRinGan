@@ -22,7 +22,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 EPS = 1e-5
 SZ = 1024
-TF_DTYPE = tf.float32
+TF_DTYPE = tf.float16
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
@@ -69,7 +69,7 @@ def deconv_shape(input, channels_scale, out_channels=None):
   return output_shape
 
 def create_w(shape, name):
-  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.5, dtype=TF_DTYPE), dtype=TF_DTYPE)
+  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 1.0, dtype=TF_DTYPE), dtype=TF_DTYPE)
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
@@ -283,6 +283,9 @@ def create_discriminator(   discrim_inputs,
   print("dis7 conv2d in =", out.get_shape(), ", w07=", dis_w07.get_shape())
   out = tf.nn.conv2d( out, dis_w07, strides=(1,1,1,1), padding="SAME")
   print("dis7 conv2d out=", out.get_shape())
+  out = batch_norm(out, is_training)
+  out = tf.nn.leaky_relu(out, tf.constant(0.2, dtype=TF_DTYPE))
+  #out = tf.nn.relu(out)
   out = tf.sigmoid(out)
 
   return out
