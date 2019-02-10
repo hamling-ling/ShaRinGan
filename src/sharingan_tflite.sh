@@ -1,6 +1,6 @@
 #!/bin/bash
 
-toco \
+tflite_convert \
     --graph_def_file=../data/cvt/frozen_model.pb \
     --output_file=../data/cvt/model.tflite \
     --output_format=TFLITE \
