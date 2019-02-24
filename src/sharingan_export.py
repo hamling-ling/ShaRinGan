@@ -1,5 +1,3 @@
-# mvNCCompile movidius.meta.meta -in=input -on generator/decoder_1/Tanh -s 12
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -60,6 +58,7 @@ def main():
                                          ngf                        = hyper_params.ngf,
                                          is_training                = False,
                                          is_fused                   = False)
+            last_node_name=generator.name.split(":")[0]
             save_last_node_name(generator.name.split(":")[0])
 
         saver = tf.train.Saver(tf.global_variables())
@@ -79,7 +78,29 @@ def main():
         saver.save(sess, outfile)
         print("saved ", outfile)
 
-        col = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='generator')
-        for item in col:
-            print(item)
+        # We use a built-in TF helper to export variables to constants
+        output_graph_def = tf.graph_util.convert_variables_to_constants(
+            sess, # The session is used to retrieve the weights
+            tf.get_default_graph().as_graph_def(), # The graph_def is used to retrieve the nodes 
+            [last_node_name]
+        ) 
+
+    # Finally we serialize and dump the output graph to the filesystem
+    frozen_model_name=os.path.join(a.output_dir, "frozen_model.pb")
+    with tf.gfile.GFile(frozen_model_name, "wb") as f:
+        f.write(output_graph_def.SerializeToString())
+    print("%d ops in the final graph." % len(output_graph_def.node))
+
+    # save
+    tflite_name = os.path.join(a.output_dir, "model.tflite")
+    converter = tf.contrib.lite.TFLiteConverter.from_frozen_graph(
+        graph_def_file=frozen_model_name,
+        input_arrays=["input"],
+        output_arrays=["generator/Tanh"])
+    tflite_model = converter.convert()
+    open(tflite_name, "wb").write(tflite_model)
+
+    col = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='generator')
+    for item in col:
+        print(item)
 main()
