@@ -85,13 +85,22 @@ def main():
             [last_node_name]
         ) 
 
-        # Finally we serialize and dump the output graph to the filesystem
-        frozen_model_name=os.path.join(a.output_dir, "frozen_model.pb")
-        with tf.gfile.GFile(frozen_model_name, "wb") as f:
-            f.write(output_graph_def.SerializeToString())
-        print("%d ops in the final graph." % len(output_graph_def.node))
+    # Finally we serialize and dump the output graph to the filesystem
+    frozen_model_name=os.path.join(a.output_dir, "frozen_model.pb")
+    with tf.gfile.GFile(frozen_model_name, "wb") as f:
+        f.write(output_graph_def.SerializeToString())
+    print("%d ops in the final graph." % len(output_graph_def.node))
 
-        col = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='generator')
-        for item in col:
-            print(item)
+    # save
+    tflite_name = os.path.join(a.output_dir, "model.tflite")
+    converter = tf.contrib.lite.TFLiteConverter.from_frozen_graph(
+        graph_def_file=frozen_model_name,
+        input_arrays=["input"],
+        output_arrays=["generator/Tanh"])
+    tflite_model = converter.convert()
+    open(tflite_name, "wb").write(tflite_model)
+
+    col = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='generator')
+    for item in col:
+        print(item)
 main()
