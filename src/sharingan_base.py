@@ -70,9 +70,9 @@ def deconv_shape(input, channels_scale, out_channels=None):
 
 def deconv(input, w, out_shape, name):
     print("out_shape=", out_shape)
-    print(name, " input=", input.get_shape(), " ", w.name, "=", w.get_shape())
+    print(name, "input=", input.get_shape(), w.name, "=", w.get_shape())
     out = tf.nn.conv2d_transpose(input, w, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name=name)
-    print(name, " output=", out.get_shape())
+    print(name, "output=", out.get_shape())
     return out
 
 def create_w(shape, name):
