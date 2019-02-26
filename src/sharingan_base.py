@@ -156,39 +156,39 @@ def create_generator(   generator_inputs,
   #encooder_1
   e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
   #encoder_2
-  out = tf.nn.leaky_relu(e01)
+  out = tf.nn.relu6(e01)
   out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
   e02 = batch_norm(out, is_training)
   #encoder_3
-  out = tf.nn.leaky_relu(e02)
+  out = tf.nn.relu6(e02)
   out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
   e03 = batch_norm(out, is_training)
   #encoder_4
-  out = tf.nn.leaky_relu(e03)
+  out = tf.nn.relu6(e03)
   out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
   e04 = batch_norm(out, is_training)
   #encoder_5
-  out = tf.nn.leaky_relu(e04)
+  out = tf.nn.relu6(e04)
   out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
   e05 = batch_norm(out, is_training)
   #encoder_6
-  out = tf.nn.leaky_relu(e05)
+  out = tf.nn.relu6(e05)
   out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
   e06 = batch_norm(out, is_training)
   #encoder_7
-  out = tf.nn.leaky_relu(e06)
+  out = tf.nn.relu6(e06)
   out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
   e07 = batch_norm(out, is_training)
   #encoder_8
-  out = tf.nn.leaky_relu(e07)
+  out = tf.nn.relu6(e07)
   out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
   e08 = batch_norm(out, is_training)
   #encoder_9
-  out = tf.nn.leaky_relu(e08)
+  out = tf.nn.relu6(e08)
   out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
   e09 = batch_norm(out, is_training)
   #encoder_10
-  out = tf.nn.leaky_relu(e09)
+  out = tf.nn.relu6(e09)
   out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
   e10 = batch_norm(out, is_training)
 
