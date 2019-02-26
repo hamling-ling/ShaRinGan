@@ -68,6 +68,13 @@ def deconv_shape(input, channels_scale, out_channels=None):
                            out_channels])
   return output_shape
 
+def deconv(input, w, out_shape, name):
+    print("out_shape=", out_shape)
+    print(name, " input=", input.get_shape(), " ", w.name, "=", w.get_shape())
+    out = tf.nn.conv2d_transpose(input, w, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name=name)
+    print(name, " output=", out.get_shape())
+    return out
+
 def create_w(shape, name):
   return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE), dtype=tf.float32)
 
@@ -199,9 +206,7 @@ def create_generator(   generator_inputs,
   #decoder_1 [b, 1, 1, 128] => [b, 1, 2, 128]
   out = tf.nn.relu(e10)
   out_shape=deconv_shape(out, 1.0)
-  print("d1 deconv2d input=", out.get_shape(), "w11=", gen_w11.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w11, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d1 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w11, out_shape, "deconv1")
   out = batch_norm(out, is_training)
   if(is_training):
     out = tf.nn.dropout(out, keep_prob=1 - 0.5)
@@ -211,9 +216,7 @@ def create_generator(   generator_inputs,
   print("d2 concatting ", out.get_shape(), " + ", e09.get_shape())
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.25)
-  print("d2 deconv2d input=", out.get_shape(), "w12=", gen_w12.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w12, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d2 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w12, out_shape, "deconv2")
   out = batch_norm(out, is_training)
   if(is_training):
     out = tf.nn.dropout(out, keep_prob=1 - 0.5)
@@ -223,9 +226,7 @@ def create_generator(   generator_inputs,
   out = tf.concat([out, e08], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.5)
-  print("d3 deconv2d input=", out.get_shape(), "w13=", gen_w13.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w13, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d3 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w13, out_shape, "deconv3")
   out = batch_norm(out, is_training)
   if(is_training):
     out = tf.nn.dropout(out, keep_prob=1 - 0.5)
@@ -235,9 +236,7 @@ def create_generator(   generator_inputs,
   print("d4 concatting ", out.get_shape(), " + ", e07.get_shape())
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.5)
-  print("d4 deconv2d input=", out.get_shape(), "w14=", gen_w14.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w14, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d4 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w14, out_shape, "deconv4")
   out = batch_norm(out, is_training)
 
   #decoder_5 [b, 1, 16, 64] => [b, 1, 16, 128] => [b, 1, 32, 64]
@@ -245,9 +244,7 @@ def create_generator(   generator_inputs,
   print("d5 concatting ", out.get_shape(), " + ", e06.get_shape())
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.5)
-  print("d5 deconv2d input=", out.get_shape(), "w15=", gen_w15.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w15, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d5 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w15, out_shape, "deconv5")
   out = batch_norm(out, is_training)
 
   #decoder_6 [b, 1, 32, 64] => [b, 1, 32, 128] => [b, 1, 64, 32]
@@ -255,9 +252,7 @@ def create_generator(   generator_inputs,
   print("d6 concatting ", out.get_shape(), " + ", e05.get_shape())
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.25)
-  print("d6 deconv2d input=", out.get_shape(), "w16=", gen_w16.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w16, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d6 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w16, out_shape, "deconv6")
   out = batch_norm(out, is_training)
 
   #decoder_7 [b, 1, 64, 32] => [b, 1, 64, 64] => [b, 1, 128, 32]
@@ -265,9 +260,7 @@ def create_generator(   generator_inputs,
   print("d7 deconcatting ", out.get_shape(), " + ", e04.get_shape())
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.5)
-  print("d7 deconv2d input=", out.get_shape(), "w17=", gen_w17.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w17, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d7 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w17, out_shape, "deconv7")
   out = batch_norm(out, is_training)
 
   #decoder_8 [b, 1, 128, 32] => [b, 1, 128, 64] => [b, 1, 256, 16]
@@ -275,10 +268,7 @@ def create_generator(   generator_inputs,
   out = tf.concat([out, e03], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.25)
-  print("out_shape=", out_shape)
-  print("d8 deconv2d input=", out.get_shape(), "w18=", gen_w18.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w18, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv8")
-  print("d8 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w18, out_shape, "deconv8")
   out = batch_norm(out, is_training)
 
   #decoder_9 [b, 1, 256, 16] => [b, 1, 256, 32] => [b, 1, 512, 16]
@@ -286,10 +276,7 @@ def create_generator(   generator_inputs,
   out = tf.concat([out, e02], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.5)
-  print("out_shape=", out_shape)
-  print("d9 deconv2d input=", out.get_shape(), "w19=", gen_w19.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w19, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv9")
-  print("d9 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w19, out_shape, "deconv9")
   out = batch_norm(out, is_training)
 
   #decoder_10 [b, 1, 512, 16] => [b, 1, 512, 32] => [b, 1, 512, 1]
@@ -297,9 +284,7 @@ def create_generator(   generator_inputs,
   out = tf.concat([out, e01], axis=3)
   out = tf.nn.relu(out)
   out_shape=deconv_shape(out, 0.0, 1) #[b, 1, 2*512, 1)
-  print("d10 deconv2d input=", out.get_shape(), "w20=", gen_w20.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w20, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv10")
-  print("d10 deconv2d output=", out.get_shape())
+  out = deconv(out, gen_w20, out_shape, "deconv10")
   out = tf.tanh(out)
 
   return out
