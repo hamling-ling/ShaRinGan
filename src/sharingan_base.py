@@ -425,6 +425,8 @@ def create_model(inputs,
         gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
         gen_loss = gen_loss_GAN * hyper_params.gan_weight + gen_loss_L1 * hyper_params.l1_weight
 
+    tf.contrib.quantize.create_training_graph(quant_delay=5000)
+
     with tf.name_scope("discriminator_train"):
         discrim_tvars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
         discrim_optim = tf.train.AdamOptimizer(hyper_params.lr, hyper_params.beta1)
