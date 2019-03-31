@@ -26,7 +26,7 @@ TF_DTYPE = tf.float32
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
-HyperParams = collections.namedtuple("HyperParams", "lr, beta1, l1_weight, gan_weight, ngf, ndf, conv_std")
+HyperParams = collections.namedtuple("HyperParams", "lr, beta1, l1_weight, gan_weight, ngf, ndf, conv_std, enable_quantization")
 
 def location(depth=0):
     frame = inspect.currentframe().f_back
@@ -425,7 +425,8 @@ def create_model(inputs,
         gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
         gen_loss = gen_loss_GAN * hyper_params.gan_weight + gen_loss_L1 * hyper_params.l1_weight
 
-    tf.contrib.quantize.create_training_graph(quant_delay=5000)
+    if(hyper_params.enable_quantization):
+        tf.contrib.quantize.create_training_graph(quant_delay=5000)
 
     with tf.name_scope("discriminator_train"):
         discrim_tvars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
