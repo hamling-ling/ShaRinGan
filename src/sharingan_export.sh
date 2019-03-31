@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Where the chepoint file is.
-CHEKPOINT_FILE="../data/output/quantization_aware_model/model.ckpt-95850"
+CHEKPOINT_FILE="../data/output/pretrained_model/model.ckpt-95850"
 
 echo -------- exporting --------
 rm -rf ../data/output/frozen_model
