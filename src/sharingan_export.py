@@ -55,7 +55,7 @@ def main():
         with tf.variable_scope("generator"):
             generator = create_generator(generator_inputs           = input,
                                          generator_outputs_channels = 1,
-                                         ngf                        = hyper_params.ngf,
+                                         hyper_params               = hyper_params,
                                          is_training                = False,
                                          is_fused                   = False)
             last_node_name=generator.name.split(":")[0]
