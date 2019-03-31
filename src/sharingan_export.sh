@@ -5,7 +5,7 @@ CHEKPOINT_FILE="../data/output/quantization_aware_model/model.ckpt-95850"
 
 echo -------- exporting --------
 rm -rf ../data/output/frozen_model
-python sharingan_export_test.py \
+python sharingan_export.py \
   --output_dir "../data/output/frozen_model" \
   --checkpoint $CHEKPOINT_FILE
 
