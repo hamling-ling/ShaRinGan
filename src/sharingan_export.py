@@ -56,11 +56,10 @@ def main():
                                          is_fused                   = False)
 
         # save graph that not including weights
-        filename = "graph.pb"
+        filename = "inference_graph.pb"
         if(hyper_params.enable_quantization):
             print("exporting quantized graph")
             tf.contrib.quantize.create_eval_graph()
-            filename = "quantized_graph.pb"
         else:
             print("exporting on-quantized graph")
 
