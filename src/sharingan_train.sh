@@ -19,4 +19,5 @@ python sharingan_train.py \
   --ngf 32 \
   --ndf 32 \
   --batch_size 32 \
+  --enable_quantization \
   --input_dir "../data/input/training" 2>&1 | tee $OUTPUT_DIR/output.log

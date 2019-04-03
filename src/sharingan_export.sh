@@ -48,15 +48,15 @@ convert_to_ui8_tflite()
   --input_arrays=input \
   --mean_values 121 \
   --std_dev_values=64 \
-  --default_ranges_min=0 \
+  --default_ranges_min=-6 \
   --default_ranges_max=6
 }
 
-#convert_to_ui8_tflite TFLITE ../data/output/frozen_model/sharingan_ui8.tflite
-#convert_to_ui8_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_ui8.dot"
+convert_to_ui8_tflite TFLITE ../data/output/frozen_model/sharingan_ui8.tflite
+convert_to_ui8_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_ui8.dot"
 
-convert_to_fp_tflite TFLITE ../data/output/frozen_model/sharingan_fp.tflite
-convert_to_fp_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_fp.dot"
+#convert_to_fp_tflite TFLITE ../data/output/frozen_model/sharingan_fp.tflite
+#convert_to_fp_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_fp.dot"
 
 #how to convert
 #dot -Tpdf -O /tmp/foo.dot
