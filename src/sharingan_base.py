@@ -84,11 +84,17 @@ def deconv(input, w, out_shape, name):
 def create_w(shape, name, std):
     return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0.0, std, dtype=TF_DTYPE), dtype=tf.float32)
 
-def enc_relu(input):
-    return tf.nn.relu6(input)
+def enc_relu(input, enable_quantization=False):
+    out = tf.nn.relu6(input)
+    if(enable_quantization):
+        return tf.fake_quant_with_min_max_args( out, min=0.0, max=6.0, name="fq_relu")
+    return out
 
-def dec_relu(input):
-    return tf.nn.relu6(input)
+def dec_relu(input, enable_quantization=False):
+    out = tf.nn.relu6(input)
+    if(enable_quantization):
+        return tf.fake_quant_with_min_max_args( out, min=0.0, max=6.0, name="fq_relu")
+    return out
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
