@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # Where the chepoint file is.
-CHEKPOINT_FILE="../data/output/pretrained_model/model.ckpt-95850"
+CHECKPOINT_DIR=../data/output/pretrained_model
+CHEKPOINT_FILE=$CHECKPOINT_DIR/model.ckpt-95850
+
+# true or empty
+IS_QUANTIZED=$(grep -E "enable_quantization" $CHECKPOINT_DIR/hyper_params.json | grep -o true)
 
 echo -------- exporting --------
 rm -rf ../data/output/frozen_model
@@ -52,11 +56,14 @@ convert_to_ui8_tflite()
   --default_ranges_max=6
 }
 
-convert_to_ui8_tflite TFLITE ../data/output/frozen_model/sharingan_ui8.tflite
-convert_to_ui8_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_ui8.dot"
-
-#convert_to_fp_tflite TFLITE ../data/output/frozen_model/sharingan_fp.tflite
-#convert_to_fp_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_fp.dot"
+if [ -z $IS_QUANTIZED ]
+then
+  convert_to_fp_tflite TFLITE ../data/output/frozen_model/sharingan_fp.tflite
+  convert_to_fp_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_fp.dot"
+else
+  convert_to_ui8_tflite TFLITE ../data/output/frozen_model/sharingan_ui8.tflite
+  convert_to_ui8_tflite GRAPHVIZ_DOT "../data/output/frozen_model/sharingan_ui8.dot"
+fi
 
 #how to convert
 #dot -Tpdf -O /tmp/foo.dot
