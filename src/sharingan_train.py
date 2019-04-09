@@ -34,6 +34,8 @@ def processArgs():
     parser.add_argument("--gan_weight", type=float, default=1.0, help="gan_weight")
     parser.add_argument("--ngf", type=int, default=16, help="ngf")
     parser.add_argument("--ndf", type=int, default=16, help="ndf")
+    parser.add_argument("--conv_std", type=float, default=0.001, help="conv_std")
+    parser.add_argument("--enable_quantization", action="store_true", help="True for tflite quantization")
 
     a = parser.parse_args()
 
@@ -46,7 +48,7 @@ def processArgs():
     with open(os.path.join(a.output_dir, "options.json"), "w") as f:
         f.write(json.dumps(vars(a), sort_keys=True, indent=4))
 
-    hyp = HyperParams(a.lr, a.beta1, a.l1_weight, a.gan_weight, a.ngf, a.ndf)
+    hyp = HyperParams(a.lr, a.beta1, a.l1_weight, a.gan_weight, a.ngf, a.ndf, a.conv_std, a.enable_quantization)
     with open(os.path.join(a.output_dir, "hyper_params.json"), "w") as f:
         f.write(json.dumps(hyp._asdict(), sort_keys=True, indent=4))
 

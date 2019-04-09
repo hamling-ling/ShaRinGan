@@ -45,9 +45,9 @@ def main():
 
     # inputs and targets are [batch_size, height, width, channels]
     with tf.variable_scope("generator"):
-        model = create_generator(generator_inputs           = examples.inputs,
+        model = create_generator(generator_inputs          = examples.inputs,
                                 generator_outputs_channels = 1,
-                                ngf                        = hyper_params.ngf,
+                                hyper_params               = hyper_params,
                                 is_training                = False,
                                 is_fused                   = False)
 

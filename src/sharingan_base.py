@@ -26,7 +26,7 @@ TF_DTYPE = tf.float32
 
 Examples = collections.namedtuple("Examples", "paths, inputs, targets, count, steps_per_epoch")
 Model = collections.namedtuple("Model", "outputs, predict_real, predict_fake, discrim_loss, discrim_grads_and_vars, gen_loss_GAN, gen_loss_L1, gen_grads_and_vars, train")
-HyperParams = collections.namedtuple("HyperParams", "lr, beta1, l1_weight, gan_weight, ngf, ndf")
+HyperParams = collections.namedtuple("HyperParams", "lr, beta1, l1_weight, gan_weight, ngf, ndf, conv_std, enable_quantization")
 
 def location(depth=0):
     frame = inspect.currentframe().f_back
@@ -68,8 +68,33 @@ def deconv_shape(input, channels_scale, out_channels=None):
                            out_channels])
   return output_shape
 
-def create_w(shape, name):
-  return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0, 0.02, dtype=TF_DTYPE), dtype=tf.float32)
+def deconv(input, w, out_shape, name):
+    print("out_shape=", out_shape)
+    print(name, "input=", input.get_shape(), ",", w.name, "=", w.get_shape())
+
+    upsampled=tf.concat([input,input],axis=3)
+    inshape = input.get_shape()
+    upsampled=tf.reshape(upsampled, (-1,inshape[1],inshape[2]*2,inshape[3]))
+
+    out = tf.nn.conv2d(upsampled, w, strides=(1,1,1,1), padding="SAME", name=name)
+    #out = tf.nn.conv2d_transpose(input, w, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name=name)
+    print(name, "output=", out.get_shape())
+    return out
+
+def create_w(shape, name, std):
+    return tf.get_variable(name, shape=shape, initializer=tf.random_normal_initializer(0.0, std, dtype=TF_DTYPE), dtype=tf.float32)
+
+def enc_relu(input, enable_quantization=False):
+    out = tf.nn.relu6(input)
+    if(enable_quantization):
+        return tf.fake_quant_with_min_max_args( out, min=0.0, max=6.0, name="fq_relu")
+    return out
+
+def dec_relu(input, enable_quantization=False):
+    out = tf.nn.relu6(input)
+    if(enable_quantization):
+        return tf.fake_quant_with_min_max_args( out, min=0.0, max=6.0, name="fq_relu")
+    return out
 
 def load_examples(input_dir, batch_size, is_training=True):
     if input_dir is None or not os.path.exists(input_dir):
@@ -120,262 +145,245 @@ def load_examples(input_dir, batch_size, is_training=True):
 
 def create_generator(   generator_inputs,
                         generator_outputs_channels, #not used. remove later
-                        ngf,
+                        hyper_params,
                         is_training,
                         is_fused):
-  # generator encoder filter [h, w, in ch, out ch]
-  gen_w01 = create_w(shape=[1, 4,       1, ngf * 1], name="gen_w01")
-  gen_w02 = create_w(shape=[1, 4, ngf * 1, ngf * 1], name="gen_w02")
-  gen_w03 = create_w(shape=[1, 4, ngf * 1, ngf * 2], name="gen_w03")
-  gen_w04 = create_w(shape=[1, 4, ngf * 2, ngf * 2], name="gen_w04")
-  gen_w05 = create_w(shape=[1, 4, ngf * 2, ngf * 4], name="gen_w05")
-  gen_w06 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w06")
-  gen_w07 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w07")
-  gen_w08 = create_w(shape=[1, 4, ngf * 4, ngf * 4], name="gen_w08")
-  gen_w09 = create_w(shape=[1, 4, ngf * 4, ngf * 8], name="gen_w09")
-  gen_w10 = create_w(shape=[1, 4, ngf * 8, ngf * 8], name="gen_w10")
-  # generator decoder filter [h, w, out ch, in ch] ... in and out are reversed!
-  gen_w11 = create_w(shape=[1, 4, ngf * 8 * 1, ngf * 8 * 1], name="gen_w11") #128=>128
-  gen_w12 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 8 * 2], name="gen_w12") #256=>64
-  gen_w13 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w13") #128=>64
-  gen_w14 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w14") #128=>64
-  gen_w15 = create_w(shape=[1, 4, ngf * 4 * 1, ngf * 4 * 2], name="gen_w15") #128=>64
-  gen_w16 = create_w(shape=[1, 4, ngf * 2 * 1, ngf * 4 * 2], name="gen_w16") #128=>32
-  gen_w17 = create_w(shape=[1, 4, ngf * 2 * 1, ngf * 2 * 2], name="gen_w17") #128=>32
-  gen_w18 = create_w(shape=[1, 4, ngf * 1 * 1, ngf * 2 * 2], name="gen_w18") #64=>16
-  gen_w19 = create_w(shape=[1, 4, ngf * 1 * 1, ngf * 1 * 2], name="gen_w19") #32=>16
-  gen_w20 = create_w(shape=[1, 4,           1, ngf * 1 * 2], name="gen_w20") #32=>1
+    ngf = hyper_params.ngf
+    std = hyper_params.conv_std
+    # generator encoder filter [h, w, in ch, out ch]
+    gen_w01 = create_w(shape=[1, 4,   1,   32], name="gen_w01", std=std)
+    gen_w02 = create_w(shape=[1, 4,  32,   32], name="gen_w02", std=std)
+    gen_w03 = create_w(shape=[1, 4,  32,   32], name="gen_w03", std=std)
+    gen_w04 = create_w(shape=[1, 4,  32,   64], name="gen_w04", std=std)
+    gen_w05 = create_w(shape=[1, 4,  64,   64], name="gen_w05", std=std)
+    gen_w06 = create_w(shape=[1, 4,  64,   64], name="gen_w06", std=std)
+    gen_w07 = create_w(shape=[1, 4,  64,  128], name="gen_w07", std=std)
+    gen_w08 = create_w(shape=[1, 4, 128,  256], name="gen_w08", std=std)
+    gen_w09 = create_w(shape=[1, 4, 256,  512], name="gen_w09", std=std)
+    gen_w10 = create_w(shape=[1, 4, 512, 1024], name="gen_w10", std=std)
+
+    # generator decoder filter [h, w, in ch, out ch] ... in and out are reversed!
+    gen_w11 = create_w(shape=[1, 4, 1024 * 1, 512], name="gen_w11", std=std) #512=>128
+    gen_w12 = create_w(shape=[1, 4,  512 * 2, 256], name="gen_w12", std=std) #256=>128
+    gen_w13 = create_w(shape=[1, 4,  256 * 2, 128], name="gen_w13", std=std) #256=>128
+    gen_w14 = create_w(shape=[1, 4,  128 * 2,  64], name="gen_w14", std=std) #256=>128
+    gen_w15 = create_w(shape=[1, 4,   64 * 2,  64], name="gen_w15", std=std) #256=>128
+    gen_w16 = create_w(shape=[1, 4,   64 * 2,  64], name="gen_w16", std=std) #256=>64
+    gen_w17 = create_w(shape=[1, 4,   64 * 2,  32], name="gen_w17", std=std) #128=>64
+    gen_w18 = create_w(shape=[1, 4,   32 * 2,  32], name="gen_w18", std=std) #128=>32
+    gen_w19 = create_w(shape=[1, 4,   32 * 2,  32], name="gen_w19", std=std) #64=>32
+    gen_w20 = create_w(shape=[1, 4,   32 * 2,   1], name="gen_w20", std=std) #64=>1
   
-  #encooder_1
-  e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
-  #encoder_2
-  out = tf.nn.leaky_relu(e01)
-  out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
-  e02 = batch_norm(out, is_training)
-  #encoder_3
-  out = tf.nn.leaky_relu(e02)
-  out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
-  e03 = batch_norm(out, is_training)
-  #encoder_4
-  out = tf.nn.leaky_relu(e03)
-  out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
-  e04 = batch_norm(out, is_training)
-  #encoder_5
-  out = tf.nn.leaky_relu(e04)
-  out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
-  e05 = batch_norm(out, is_training)
-  #encoder_6
-  out = tf.nn.leaky_relu(e05)
-  out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
-  e06 = batch_norm(out, is_training)
-  #encoder_7
-  out = tf.nn.leaky_relu(e06)
-  out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
-  e07 = batch_norm(out, is_training)
-  #encoder_8
-  out = tf.nn.leaky_relu(e07)
-  out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
-  e08 = batch_norm(out, is_training)
-  #encoder_9
-  out = tf.nn.leaky_relu(e08)
-  out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
-  e09 = batch_norm(out, is_training)
-  #encoder_10
-  out = tf.nn.leaky_relu(e09)
-  out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
-  e10 = batch_norm(out, is_training)
+    #encooder_1
+    e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
+    out = enc_relu(e01)
+    #encoder_2
+    out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
+    e02 = batch_norm(out, is_training)
+    out = enc_relu(e02)
+    #encoder_3
+    out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
+    e03 = batch_norm(out, is_training)
+    out = enc_relu(e03)
+    #encoder_4
+    out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
+    e04 = batch_norm(out, is_training)
+    out = enc_relu(e04)
+    #encoder_5
+    out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
+    e05 = batch_norm(out, is_training)
+    out = enc_relu(e05)
+    #encoder_6
+    out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
+    e06 = batch_norm(out, is_training)
+    out = enc_relu(e06)
+    #encoder_7
+    out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
+    e07 = batch_norm(out, is_training)
+    out = enc_relu(e07)
+    #encoder_8
+    out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
+    e08 = batch_norm(out, is_training)
+    out = enc_relu(e08)
+    #encoder_9
+    out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
+    e09 = batch_norm(out, is_training)
+    out = enc_relu(e09)
+    #encoder_10
+    out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
+    e10 = batch_norm(out, is_training)
+    out = enc_relu(e10)
 
-  print("e01", e01.get_shape()) # [b, 1, 512, 16]
-  print("e02", e02.get_shape()) # [b, 1, 256, 16]
-  print("e03", e03.get_shape()) # [b, 1, 128, 32]
-  print("e04", e04.get_shape()) # [b, 1, 64,  32]
-  print("e05", e05.get_shape()) # [b, 1, 32,  64]
-  print("e06", e06.get_shape()) # [b, 1, 16,  64]
-  print("e07", e07.get_shape()) # [b, 1, 8,   64]
-  print("e08", e08.get_shape()) # [b, 1, 4,   64]
-  print("e09", e09.get_shape()) # [b, 1, 2,  128]
-  print("e10", e10.get_shape()) # [b, 1, 1,  128]
+    print("e01", e01.get_shape()) # [b, 1, 512, 16]
+    print("e02", e02.get_shape()) # [b, 1, 256, 16]
+    print("e03", e03.get_shape()) # [b, 1, 128, 32]
+    print("e04", e04.get_shape()) # [b, 1, 64,  32]
+    print("e05", e05.get_shape()) # [b, 1, 32,  64]
+    print("e06", e06.get_shape()) # [b, 1, 16,  64]
+    print("e07", e07.get_shape()) # [b, 1, 8,   64]
+    print("e08", e08.get_shape()) # [b, 1, 4,   64]
+    print("e09", e09.get_shape()) # [b, 1, 2,  128]
+    print("e10", e10.get_shape()) # [b, 1, 1,  128]
 
-  #decoder_1 [b, 1, 1, 128] => [b, 1, 2, 128]
-  out = tf.nn.relu(e10)
-  out_shape=deconv_shape(out, 1.0)
-  print("d1 deconv2d input=", out.get_shape(), "w11=", gen_w11.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w11, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d1 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-  if(is_training):
-    out = tf.nn.dropout(out, keep_prob=1 - 0.5)
+    #decoder_1 [b, 1, 1, 128] => [b, 1, 2, 128]
+    out_shape=deconv_shape(out, 1.0)
+    out = deconv(out, gen_w11, out_shape, "deconv1")
+    out = batch_norm(out, is_training)
+    if(is_training):
+        out = tf.nn.dropout(out, keep_prob=1 - 0.5)
 
-  #decoder_2 [b, 1, 2, 128] => [b, 1, 2, 256] => [b, 1, 4, 64]
-  out = tf.concat([out, e09], axis=3)
-  print("d2 concatting ", out.get_shape(), " + ", e09.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.25)
-  print("d2 deconv2d input=", out.get_shape(), "w12=", gen_w12.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w12, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d2 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-  if(is_training):
-    out = tf.nn.dropout(out, keep_prob=1 - 0.5)
+    #decoder_2 [b, 1, 2, 128] => [b, 1, 2, 256] => [b, 1, 4, 64]
+    print("d2 concatting ", out.get_shape(), " + ", e09.get_shape())
+    out = tf.concat([out, e09], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.25)
+    out = deconv(out, gen_w12, out_shape, "deconv2")
+    out = batch_norm(out, is_training)
+    if(is_training):
+        out = tf.nn.dropout(out, keep_prob=1 - 0.5)
 
-  #decoder_3 [b, 1, 4, 64] => [b, 1, 4, 128] => [b, 1, 8, 64]
-  print("d3 concatting ", out.get_shape(), " + ", e08.get_shape())
-  out = tf.concat([out, e08], axis=3)
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d3 deconv2d input=", out.get_shape(), "w13=", gen_w13.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w13, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d3 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
-  if(is_training):
-    out = tf.nn.dropout(out, keep_prob=1 - 0.5)
+    #decoder_3 [b, 1, 4, 64] => [b, 1, 4, 128] => [b, 1, 8, 64]
+    print("d3 concatting ", out.get_shape(), " + ", e08.get_shape())
+    out = tf.concat([out, e08], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.5)
+    out = deconv(out, gen_w13, out_shape, "deconv3")
+    out = batch_norm(out, is_training)
+    if(is_training):
+        out = tf.nn.dropout(out, keep_prob=1 - 0.5)
 
-  #decoder_4 [b, 1, 8, 64] => [b, 1, 8, 128] => [b, 1, 16, 64]
-  out = tf.concat([out, e07], axis=3)
-  print("d4 concatting ", out.get_shape(), " + ", e07.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d4 deconv2d input=", out.get_shape(), "w14=", gen_w14.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w14, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d4 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_4 [b, 1, 8, 64] => [b, 1, 8, 128] => [b, 1, 16, 64]
+    print("d4 concatting ", out.get_shape(), " + ", e07.get_shape())
+    out = tf.concat([out, e07], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.5)
+    out = deconv(out, gen_w14, out_shape, "deconv4")
+    out = batch_norm(out, is_training)
 
-  #decoder_5 [b, 1, 16, 64] => [b, 1, 16, 128] => [b, 1, 32, 64]
-  out = tf.concat([out, e06], axis=3)
-  print("d5 concatting ", out.get_shape(), " + ", e06.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d5 deconv2d input=", out.get_shape(), "w15=", gen_w15.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w15, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d5 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_5 [b, 1, 16, 64] => [b, 1, 16, 128] => [b, 1, 32, 64]
+    print("d5 concatting ", out.get_shape(), " + ", e06.get_shape())
+    out = tf.concat([out, e06], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.5)
+    out = deconv(out, gen_w15, out_shape, "deconv5")
+    out = batch_norm(out, is_training)
 
-  #decoder_6 [b, 1, 32, 64] => [b, 1, 32, 128] => [b, 1, 64, 32]
-  out = tf.concat([out, e05], axis=3)
-  print("d6 concatting ", out.get_shape(), " + ", e05.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.25)
-  print("d6 deconv2d input=", out.get_shape(), "w16=", gen_w16.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w16, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d6 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_6 [b, 1, 32, 64] => [b, 1, 32, 128] => [b, 1, 64, 32]
+    print("d6 concatting ", out.get_shape(), " + ", e05.get_shape())
+    out = tf.concat([out, e05], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.25)
+    out = deconv(out, gen_w16, out_shape, "deconv6")
+    out = batch_norm(out, is_training)
 
-  #decoder_7 [b, 1, 64, 32] => [b, 1, 64, 64] => [b, 1, 128, 32]
-  out = tf.concat([out, e04], axis=3)
-  print("d7 deconcatting ", out.get_shape(), " + ", e04.get_shape())
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("d7 deconv2d input=", out.get_shape(), "w17=", gen_w17.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w17, strides=(1,1,2,1), output_shape=out_shape, padding="SAME")
-  print("d7 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_7 [b, 1, 64, 32] => [b, 1, 64, 64] => [b, 1, 128, 32]
+    print("d7 deconcatting ", out.get_shape(), " + ", e04.get_shape())
+    out = tf.concat([out, e04], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.5)
+    out = deconv(out, gen_w17, out_shape, "deconv7")
+    out = batch_norm(out, is_training)
 
-  #decoder_8 [b, 1, 128, 32] => [b, 1, 128, 64] => [b, 1, 256, 16]
-  print("d8 concatting ", out.get_shape(), " + ", e03.get_shape())
-  out = tf.concat([out, e03], axis=3)
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.25)
-  print("out_shape=", out_shape)
-  print("d8 deconv2d input=", out.get_shape(), "w18=", gen_w18.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w18, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv8")
-  print("d8 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_8 [b, 1, 128, 32] => [b, 1, 128, 64] => [b, 1, 256, 16]
+    print("d8 concatting ", out.get_shape(), " + ", e03.get_shape())
+    out = tf.concat([out, e03], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.25)
+    out = deconv(out, gen_w18, out_shape, "deconv8")
+    out = batch_norm(out, is_training)
 
-  #decoder_9 [b, 1, 256, 16] => [b, 1, 256, 32] => [b, 1, 512, 16]
-  print("d9 concatting ", out.get_shape(), " + ", e02.get_shape())
-  out = tf.concat([out, e02], axis=3)
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.5)
-  print("out_shape=", out_shape)
-  print("d9 deconv2d input=", out.get_shape(), "w19=", gen_w19.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w19, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv9")
-  print("d9 deconv2d output=", out.get_shape())
-  out = batch_norm(out, is_training)
+    #decoder_9 [b, 1, 256, 16] => [b, 1, 256, 32] => [b, 1, 512, 16]
+    print("d9 concatting ", out.get_shape(), " + ", e02.get_shape())
+    out = tf.concat([out, e02], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.5)
+    out = deconv(out, gen_w19, out_shape, "deconv9")
+    out = batch_norm(out, is_training)
 
-  #decoder_10 [b, 1, 512, 16] => [b, 1, 512, 32] => [b, 1, 512, 1]
-  print("d10 concatting ", out.get_shape(), " + ", e01.get_shape())
-  out = tf.concat([out, e01], axis=3)
-  out = tf.nn.relu(out)
-  out_shape=deconv_shape(out, 0.0, 1) #[b, 1, 2*512, 1)
-  print("d10 deconv2d input=", out.get_shape(), "w20=", gen_w20.get_shape())
-  out = tf.nn.conv2d_transpose(out, gen_w20, strides=(1,1,2,1), output_shape=out_shape, padding="SAME", name="deconv10")
-  print("d10 deconv2d output=", out.get_shape())
-  out = tf.tanh(out)
+    #decoder_10 [b, 1, 512, 16] => [b, 1, 512, 32] => [b, 1, 512, 1]
+    print("d10 concatting ", out.get_shape(), " + ", e01.get_shape())
+    out = tf.concat([out, e01], axis=3)
+    out = dec_relu(out)
+    out_shape=deconv_shape(out, 0.0, 1) #[b, 1, 2*512, 1)
+    out = deconv(out, gen_w20, out_shape, "deconv10")
+    out = tf.tanh(out)
 
-  return out
+    return out
 
 def create_discriminator(   discrim_inputs,
                             discrim_targets,
-                            ndf,
+                            hyper_params,
                             is_training = True,
                             is_fused    = True):
-  # discriminator params
-  dis_w01 = create_w(shape=[1, 4,       2, ndf * 1], name="dis_w01")
-  dis_w02 = create_w(shape=[1, 4, ndf * 1, ndf * 2], name="dis_w02")
-  dis_w03 = create_w(shape=[1, 4, ndf * 2, ndf * 4], name="dis_w03")
-  dis_w04 = create_w(shape=[1, 4, ndf * 4, ndf * 8], name="dis_w04")
-  dis_w05 = create_w(shape=[1, 4, ndf * 8, ndf * 8], name="dis_w05")
-  dis_w06 = create_w(shape=[1, 4, ndf * 8, ndf * 8], name="dis_w06")
-  dis_w07 = create_w(shape=[1, 4, ndf * 8,       1], name="dis_w07")
-  
-  #dis0  2x [b, 1, 1024, 1] => [b, 1, 1024, 2]
-  out = tf.concat([discrim_inputs, discrim_targets], axis=3)
+    ndf = hyper_params.ndf
+    std = hyper_params.conv_std
+    # discriminator params
+    dis_w01 = create_w(shape=[1, 4,       2, ndf * 1], name="dis_w01", std=std)
+    dis_w02 = create_w(shape=[1, 4, ndf * 1, ndf * 2], name="dis_w02", std=std)
+    dis_w03 = create_w(shape=[1, 4, ndf * 2, ndf * 4], name="dis_w03", std=std)
+    dis_w04 = create_w(shape=[1, 4, ndf * 4, ndf * 8], name="dis_w04", std=std)
+    dis_w05 = create_w(shape=[1, 4, ndf * 8, ndf * 8], name="dis_w05", std=std)
+    dis_w06 = create_w(shape=[1, 4, ndf * 8, ndf * 8], name="dis_w06", std=std)
+    dis_w07 = create_w(shape=[1, 4, ndf * 8,       1], name="dis_w07", std=std)
 
-  #dis1 [b, 1, 1024, 2] => [b, 1, 1026, 2] => [b, 1, 513, ndf]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis1 conv2d in =", out.get_shape(), ", w01=", dis_w01.get_shape())
-  out = tf.nn.conv2d( out, dis_w01, strides=(1,1,2,1), padding="SAME")
-  print("dis1 conv2d out=", out.get_shape())
-  out = tf.nn.leaky_relu(out)
+    #dis0  2x [b, 1, 1024, 1] => [b, 1, 1024, 2]
+    out = tf.concat([discrim_inputs, discrim_targets], axis=3)
 
-  # layer_2: [b, 1, 513, ndf] => [b, 1, 515, ndf] => [b, 1, 258, ndf * 2]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis2 conv2d in =", out.get_shape(), ", w02=", dis_w02.get_shape())
-  out = tf.nn.conv2d( out, dis_w02, strides=(1,1,2,1), padding="SAME")
-  print("dis2 conv2d out=", out.get_shape())
-  out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+    #dis1 [b, 1, 1024, 2] => [b, 1, 1026, 2] => [b, 1, 513, ndf]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis1 conv2d in =", out.get_shape(), ", w01=", dis_w01.get_shape())
+    out = tf.nn.conv2d( out, dis_w01, strides=(1,1,2,1), padding="SAME")
+    print("dis1 conv2d out=", out.get_shape())
+    out = tf.nn.leaky_relu(out)
 
-  # layer_3: [b, 1, 258, ndf * 2] => [b, 1, 260, ndf * 2]  => [b, 1, 130, ndf * 4]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis3 conv2d in =", out.get_shape(), ", w03=", dis_w03.get_shape())
-  out = tf.nn.conv2d( out, dis_w03, strides=(1,1,2,1), padding="SAME")
-  print("dis3 conv2d out=", out.get_shape())
-  out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+    # layer_2: [b, 1, 513, ndf] => [b, 1, 515, ndf] => [b, 1, 258, ndf * 2]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis2 conv2d in =", out.get_shape(), ", w02=", dis_w02.get_shape())
+    out = tf.nn.conv2d( out, dis_w02, strides=(1,1,2,1), padding="SAME")
+    print("dis2 conv2d out=", out.get_shape())
+    out = batch_norm(out, is_training)
+    out = tf.nn.leaky_relu(out)
 
-  # layer_4: [b, 1, 130, ndf * 2] => [b, 1, 132, ndf * 2] => [b, 1, 66, ndf * 4]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis4 conv2d in =", out.get_shape(), ", w04=", dis_w04.get_shape())
-  out = tf.nn.conv2d( out, dis_w04, strides=(1,1,2,1), padding="SAME")
-  print("dis4 conv2d out=", out.get_shape())
-  out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+    # layer_3: [b, 1, 258, ndf * 2] => [b, 1, 260, ndf * 2]  => [b, 1, 130, ndf * 4]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis3 conv2d in =", out.get_shape(), ", w03=", dis_w03.get_shape())
+    out = tf.nn.conv2d( out, dis_w03, strides=(1,1,2,1), padding="SAME")
+    print("dis3 conv2d out=", out.get_shape())
+    out = batch_norm(out, is_training)
+    out = tf.nn.leaky_relu(out)
 
-  # layer_5: [b, 1, 66, ndf * 2] => [b, 1, 68, ndf * 2] => [b, 1, 34, ndf * 4]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis5 conv2d in =", out.get_shape(), ", w05=", dis_w05.get_shape())
-  out = tf.nn.conv2d( out, dis_w05, strides=(1,1,2,1), padding="SAME")
-  print("dis5 conv2d out=", out.get_shape())
-  out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+    # layer_4: [b, 1, 130, ndf * 2] => [b, 1, 132, ndf * 2] => [b, 1, 66, ndf * 4]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis4 conv2d in =", out.get_shape(), ", w04=", dis_w04.get_shape())
+    out = tf.nn.conv2d( out, dis_w04, strides=(1,1,2,1), padding="SAME")
+    print("dis4 conv2d out=", out.get_shape())
+    out = batch_norm(out, is_training)
+    out = tf.nn.leaky_relu(out)
 
-  # layer_6: [b, 1, 34, ndf * 4] => [b, 1, 36, ndf * 4] => [b, 1, 33, ndf * 8]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis6 conv2d in =", out.get_shape(), ", w06=", dis_w06.get_shape())
-  out = tf.nn.conv2d( out, dis_w06, strides=(1,1,1,1), padding="SAME")
-  print("dis6 conv2d out=", out.get_shape())
-  out = batch_norm(out, is_training)
-  out = tf.nn.leaky_relu(out)
+    # layer_5: [b, 1, 66, ndf * 2] => [b, 1, 68, ndf * 2] => [b, 1, 34, ndf * 4]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis5 conv2d in =", out.get_shape(), ", w05=", dis_w05.get_shape())
+    out = tf.nn.conv2d( out, dis_w05, strides=(1,1,2,1), padding="SAME")
+    print("dis5 conv2d out=", out.get_shape())
+    out = batch_norm(out, is_training)
+    out = tf.nn.leaky_relu(out)
 
-  # layer_7: [b, 1, 36, ndf * 8] => [b, 1, 38, ndf * 4] => [b, 1, 38, 1]
-  out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
-  print("dis7 conv2d in =", out.get_shape(), ", w07=", dis_w07.get_shape())
-  out = tf.nn.conv2d( out, dis_w07, strides=(1,1,1,1), padding="SAME")
-  print("dis7 conv2d out=", out.get_shape())
-  out = tf.sigmoid(out)
+    # layer_6: [b, 1, 34, ndf * 4] => [b, 1, 36, ndf * 4] => [b, 1, 33, ndf * 8]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis6 conv2d in =", out.get_shape(), ", w06=", dis_w06.get_shape())
+    out = tf.nn.conv2d( out, dis_w06, strides=(1,1,1,1), padding="SAME")
+    print("dis6 conv2d out=", out.get_shape())
+    out = batch_norm(out, is_training)
+    out = tf.nn.leaky_relu(out)
 
-  return out
+    # layer_7: [b, 1, 36, ndf * 8] => [b, 1, 38, ndf * 4] => [b, 1, 38, 1]
+    out = tf.pad(out, [[0, 0], [0, 0], [1, 1], [0, 0]], mode="CONSTANT")
+    print("dis7 conv2d in =", out.get_shape(), ", w07=", dis_w07.get_shape())
+    out = tf.nn.conv2d( out, dis_w07, strides=(1,1,1,1), padding="SAME")
+    print("dis7 conv2d out=", out.get_shape())
+    out = tf.sigmoid(out)
+
+    return out
 
 def create_model(inputs,
                  targets,
@@ -386,7 +394,7 @@ def create_model(inputs,
         out_channels = int(targets.get_shape()[-1])
         outputs = create_generator(generator_inputs           = inputs,
                                    generator_outputs_channels = out_channels,
-                                   ngf                        = hyper_params.ngf,
+                                   hyper_params               = hyper_params,
                                    is_training                = is_training,
                                    is_fused                   = is_fused)
 
@@ -397,7 +405,7 @@ def create_model(inputs,
             # 2x [batch, height, width, channels] => [batch, 1, 30, 1]
             predict_real = create_discriminator(discrim_inputs  = inputs,
                                                 discrim_targets = targets,
-                                                ndf             = hyper_params.ndf,
+                                                hyper_params    = hyper_params,
                                                 is_training     = is_training,
                                                 is_fused        = is_fused)
 
@@ -406,7 +414,7 @@ def create_model(inputs,
             # 2x [batch, height, width, channels] => [batch, 1, 30, 1]
             predict_fake = create_discriminator(discrim_inputs  = inputs,
                                                 discrim_targets = outputs,
-                                                ndf             = hyper_params.ndf,
+                                                hyper_params    = hyper_params,
                                                 is_training     = is_training,
                                                 is_fused        = is_fused)
 
@@ -422,6 +430,9 @@ def create_model(inputs,
         gen_loss_GAN = tf.reduce_mean(-tf.log(predict_fake + EPS), name="gen_loss_GAN")
         gen_loss_L1 = tf.reduce_mean(tf.abs(targets - outputs), name="gen_loss_L1")
         gen_loss = gen_loss_GAN * hyper_params.gan_weight + gen_loss_L1 * hyper_params.l1_weight
+
+    if(hyper_params.enable_quantization):
+        tf.contrib.quantize.create_training_graph(quant_delay=5000)
 
     with tf.name_scope("discriminator_train"):
         discrim_tvars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]

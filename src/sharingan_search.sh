@@ -3,15 +3,21 @@
 function train () {
   EPOCHS=$1
   LR=$2
-  NGF=$3
-  BATCH_SIZE=$4
+  BETA1=$3
+  STD=$4
+  BATCH_SIZE=$5
+  NGF=32
+  NDF=32
 
   echo EPOCHS=${EPOCHS}
   echo LR=${LR}
-  echo NGF=${NGF}
+  echo BETA1=${BETA1}
+  echo STD=${STD}
   echo BATCH_SIZE=${BATCH_SIZE}
-
-  SUFFIX=ngf${NGF}_lr${LR}_bs${BATCH_SIZE}
+  echo NGF=${NGF}
+  echo NDF=${NDF}
+  
+  SUFFIX=lr${LR}_b1${BETA1}_std${STD}_bs${BATCH_SIZE}
   OUT_DIR="cp_${SUFFIX}"
 
   echo removing ${OUT_DIR}
@@ -21,34 +27,28 @@ function train () {
 
   python sharingan_train.py \
     --output_dir "${OUT_DIR}" \
-    --max_epochs 200 \
+    --max_epochs ${EPOCHS} \
     --lr ${LR} \
+    --beta1 ${BETA1} \
+    --conv_std ${STD} \
     --ngf ${NGF} \
     --ndf ${NGF} \
     --batch_size ${BATCH_SIZE} \
     --input_dir "../data/input/training" 2>&1 | tee "${OUT_DIR}/output.log"
 }
 
-train 200 0.00004 16 64
-train 200 0.0002 16 64
-train 200 0.001 16 64
+train 200 0.00004 0.5 0.0005 32
+train 200 0.0002 0.5 0.0005 32
+train 200 0.001 0.5 0.0005 32
 
-train 200 0.00004 16 512
-train 200 0.0002 16 512
-train 200 0.001 16 512
+train 200 0.00004 0.5 0.0005 64
+train 200 0.0002 0.5 0.0005 64
+train 200 0.001 0.5 0.0005 64
 
-train 200 0.00004 16 1024
-train 200 0.0002 16 1024
-train 200 0.001 16 1024
+train 200 0.00004 0.5 0.005 128
+train 200 0.0002 0.5 0.005 128
+train 200 0.001 0.5 0.005 128
 
-train 200 0.00004 32 64
-train 200 0.0002 32 64
-train 200 0.001 32 64
-
-train 200 0.00004 32 512
-train 200 0.0002 32 512
-train 200 0.001 32 512
-
-train 200 0.00004 32 1024
-train 200 0.0002 32 1024
-train 200 0.001 32 1024
+train 200 0.00004 0.5 0.05 256
+train 200 0.0002 0.5 0.05 256
+train 200 0.001 0.5 0.05 256
