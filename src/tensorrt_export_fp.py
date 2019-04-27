@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import tensorflow as tf
 import tensorrt as trt
@@ -46,6 +47,7 @@ def inference(engine, input):
     stream = cuda.Stream()
     
     with engine.create_execution_context() as context:
+        start_time = time.time()
         np.copyto(h_input, input)
         # Transfer input data to the GPU.
         cuda.memcpy_htod_async(d_input, h_input, stream)
@@ -55,6 +57,7 @@ def inference(engine, input):
         cuda.memcpy_dtoh_async(h_output, d_output, stream)
         # Synchronize the stream
         stream.synchronize()
+        print('time: %fms'%((time.time()-start_time)*1000))
         # Return the host output. 
         return h_output
 
