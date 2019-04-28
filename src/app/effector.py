@@ -49,8 +49,6 @@ class Effector():
         print("engine initialized")
 
     def effect(self, input):
-        #with self.engine.create_execution_context() as context:
-
         np.copyto(self.h_input, input)
         cuda.memcpy_htod_async(self.d_input, self.h_input, self.stream)
 
