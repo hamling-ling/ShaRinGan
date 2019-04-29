@@ -97,12 +97,13 @@ def main():
         parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
 
     server = tf.train.Server.create_local_server()
-    saver = tf.train.Saver(max_to_keep=10)
+    saver = tf.train.Saver(max_to_keep=64)
 
     tensors_to_log = {
         "d_loss": "discriminator_loss/discrim_loss",
         "g_loss_GAN":"generator_loss/gen_loss_GAN",
-        "g_loss_L1":"generator_loss/gen_loss_L1"
+        "g_loss_L1":"generator_loss/gen_loss_L1",
+        "global_step":"global_step"
     }
     logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=a.progress_freq)
 
