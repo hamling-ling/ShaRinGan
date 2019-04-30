@@ -535,4 +535,4 @@ class ProgressLoggingHook(StepCountHook):
 
     def ellapsed(self, val, step):
         percent=100.0*step/self._max_steps
-        print("progress={0}% ({1}/{2})".format(percent, step, self._max_steps))
+        print("progress={0}% ({1}/{2}) steps={3}".format(percent, step, self._max_steps, self._step))
