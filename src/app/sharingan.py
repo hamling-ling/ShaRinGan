@@ -2,9 +2,12 @@ import pyaudio
 import time
 import threading
 import os
+import sys
+import select
 import numpy as np
 import audio_streamer
 import effector
+import graceful_killer as kl
 
 import matplotlib as mpl
 mpl.use('Agg')
@@ -24,6 +27,9 @@ class Sharingan():
         self.input = np.zeros([1,1,1024])
         self.output = np.zeros([1,1,1024])
         self.effector = effector.Effector(PB_FILE, UFF_FILE, ENGINE_FILE)
+        self.enabled = True
+        self.quit = False
+        self.killer = kl.GracefulKiller()
 
     def start(self):
         """
@@ -37,20 +43,33 @@ class Sharingan():
         audio.open_device(self, self.audio_arrived)
         audio.start_streaming()
 
-        while audio.is_streaming():
+        self.print_instruction()
+    
+        while audio.is_streaming() and not self.should_quit():
             # Wait to audio data arrived
             self.event.wait()
             # Once audio data is arrived. is should be stored in self.input
             # We give the data to effector to get modified sound
             # Send signal to audio callback function
-            self.output = self.effector.effect(self.input)
+            if(self.enabled):
+                self.output = self.effector.effect(self.input)
+            else:
+                self.output = self.input
             self.event.set()
             self.event.clear()
+            # Receive Keyboard iput
+            self.handle_input()
 
+        print("quitting")
+        self.event.set()
+        self.event.clear()
         audio.stop_streaming()
         audio.close_device()
+        print("sharingan finished")
 
     def audio_arrived(self, context, seq, in_data):
+        if(self.quit):
+            return in_data
         # Store data and activate inference process
         self.input = in_data
         self.event.set()
@@ -60,6 +79,34 @@ class Sharingan():
 
         # return data to play
         return self.output
+
+    def should_quit(self):
+        if(self.quit):
+            return True
+        if(self.killer.kill_now):
+            return True
+        return False
+
+    def print_instruction(self):
+        print("input 'q' to quit")
+        print("      'e' to enable effector(default)")
+        print("      'd' to disable effector")
+
+    def handle_input(self):
+        ch = None
+        if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
+            ch = sys.stdin.read(1)
+        if ch is None:
+            return
+        elif ch == 'q' or ch == 'Q':
+            print("quit")
+            self.quit = True
+        elif ch == 'e' or ch == 'E':
+            self.enabled = True
+            print("effector enabled")
+        elif ch == 'd' or ch == 'd':
+            self.enabled = False
+            print("effector disabled")
 
 if __name__ == "__main__":
     sharingan = Sharingan()
