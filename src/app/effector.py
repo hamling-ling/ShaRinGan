@@ -20,11 +20,11 @@ class Effector():
         print("creating engine")
         if not os.path.exists(self.uff_file_name):
             print(self.uff_file_name, "not found. create new uff file")
-            convert_to_uff()
+            self.convert_to_uff()
 
         if not os.path.exists(self.engine_file_name):
             print(self.engine_file_name, "not found. build new engine")
-            engine = self.build_engine(self.uff_file_name)
+            engine = self.build_engine()
             with open(self.engine_file_name, "wb") as f:
                 f.write(engine.serialize())
         else:
@@ -61,11 +61,11 @@ class Effector():
         self.stream.synchronize()
         return self.h_output
 
-    def build_engine(uff_file):
+    def build_engine(self):
         with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network, trt.UffParser() as parser:
             parser.register_input("input", (1, 1, 1024))
             parser.register_output("generator/Tanh")
-            parser.parse(uff_file, network)
+            parser.parse(self.uff_file_name, network)
         
             builder.max_workspace_size = 1 <<  20
             builder.fp16_mode = True
@@ -75,7 +75,7 @@ class Effector():
             return engine
 
     def convert_to_uff(self):
-            uff.from_tensorflow_frozen_model(frozen_file=self.pb_file_in,
+            uff.from_tensorflow_frozen_model(frozen_file=self.pb_file_name,
                                         output_nodes=["generator/Tanh"],
-                                        output_filename=self.uff_file_out,
+                                        output_filename=self.uff_file_name,
                                         list_nodes=False)
