@@ -3,6 +3,8 @@
 DCGAN guitar effector application for Jetson.
 The model is based on https://github.com/hamling-ling/ShaRinGan
 
+[![Watch the video](https://img.youtube.com/vi/b-zGMJ6IPrw/hqdefault.jpg)](https://youtu.be/b-zGMJ6IPrw)
+
 ## Getting Started
 
 Clone this repository
