@@ -2,7 +2,7 @@
 
 # Where the chepoint file is.
 CHECKPOINT_DIR=../data/output/pretrained_model
-CHEKPOINT_FILE=$CHECKPOINT_DIR/model.ckpt-95850
+CHEKPOINT_FILE=$CHECKPOINT_DIR/model.ckpt-33000
 
 # true or empty
 IS_QUANTIZED=$(grep -E "enable_quantization" $CHECKPOINT_DIR/hyper_params.json | grep -o true)

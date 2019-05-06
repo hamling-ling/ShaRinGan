@@ -176,43 +176,43 @@ def create_generator(   generator_inputs,
   
     #encooder_1
     e01 = tf.nn.conv2d( generator_inputs, gen_w01, strides=(1,1,2,1), padding="SAME")
-    out = enc_relu(e01)
+    out = enc_relu(e01, hyper_params.enable_quantization)
     #encoder_2
     out = tf.nn.conv2d( out, gen_w02, strides=(1,1,2,1), padding="SAME")
     e02 = batch_norm(out, is_training)
-    out = enc_relu(e02)
+    out = enc_relu(e02, hyper_params.enable_quantization)
     #encoder_3
     out = tf.nn.conv2d( out, gen_w03, strides=(1,1,2,1), padding="SAME")
     e03 = batch_norm(out, is_training)
-    out = enc_relu(e03)
+    out = enc_relu(e03, hyper_params.enable_quantization)
     #encoder_4
     out = tf.nn.conv2d( out, gen_w04, strides=(1,1,2,1), padding="SAME")
     e04 = batch_norm(out, is_training)
-    out = enc_relu(e04)
+    out = enc_relu(e04, hyper_params.enable_quantization)
     #encoder_5
     out = tf.nn.conv2d( out, gen_w05, strides=(1,1,2,1), padding="SAME")
     e05 = batch_norm(out, is_training)
-    out = enc_relu(e05)
+    out = enc_relu(e05, hyper_params.enable_quantization)
     #encoder_6
     out = tf.nn.conv2d( out, gen_w06, strides=(1,1,2,1), padding="SAME")
     e06 = batch_norm(out, is_training)
-    out = enc_relu(e06)
+    out = enc_relu(e06, hyper_params.enable_quantization)
     #encoder_7
     out = tf.nn.conv2d( out, gen_w07, strides=(1,1,2,1), padding="SAME")
     e07 = batch_norm(out, is_training)
-    out = enc_relu(e07)
+    out = enc_relu(e07, hyper_params.enable_quantization)
     #encoder_8
     out = tf.nn.conv2d( out, gen_w08, strides=(1,1,2,1), padding="SAME")
     e08 = batch_norm(out, is_training)
-    out = enc_relu(e08)
+    out = enc_relu(e08, hyper_params.enable_quantization)
     #encoder_9
     out = tf.nn.conv2d( out, gen_w09, strides=(1,1,2,1), padding="SAME")
     e09 = batch_norm(out, is_training)
-    out = enc_relu(e09)
+    out = enc_relu(e09, hyper_params.enable_quantization)
     #encoder_10
     out = tf.nn.conv2d( out, gen_w10, strides=(1,1,2,1), padding="SAME")
     e10 = batch_norm(out, is_training)
-    out = enc_relu(e10)
+    out = enc_relu(e10, hyper_params.enable_quantization)
 
     print("e01", e01.get_shape()) # [b, 1, 512, 16]
     print("e02", e02.get_shape()) # [b, 1, 256, 16]
@@ -235,7 +235,7 @@ def create_generator(   generator_inputs,
     #decoder_2 [b, 1, 2, 128] => [b, 1, 2, 256] => [b, 1, 4, 64]
     print("d2 concatting ", out.get_shape(), " + ", e09.get_shape())
     out = tf.concat([out, e09], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.25)
     out = deconv(out, gen_w12, out_shape, "deconv2")
     out = batch_norm(out, is_training)
@@ -245,7 +245,7 @@ def create_generator(   generator_inputs,
     #decoder_3 [b, 1, 4, 64] => [b, 1, 4, 128] => [b, 1, 8, 64]
     print("d3 concatting ", out.get_shape(), " + ", e08.get_shape())
     out = tf.concat([out, e08], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.5)
     out = deconv(out, gen_w13, out_shape, "deconv3")
     out = batch_norm(out, is_training)
@@ -255,7 +255,7 @@ def create_generator(   generator_inputs,
     #decoder_4 [b, 1, 8, 64] => [b, 1, 8, 128] => [b, 1, 16, 64]
     print("d4 concatting ", out.get_shape(), " + ", e07.get_shape())
     out = tf.concat([out, e07], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.5)
     out = deconv(out, gen_w14, out_shape, "deconv4")
     out = batch_norm(out, is_training)
@@ -263,7 +263,7 @@ def create_generator(   generator_inputs,
     #decoder_5 [b, 1, 16, 64] => [b, 1, 16, 128] => [b, 1, 32, 64]
     print("d5 concatting ", out.get_shape(), " + ", e06.get_shape())
     out = tf.concat([out, e06], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.5)
     out = deconv(out, gen_w15, out_shape, "deconv5")
     out = batch_norm(out, is_training)
@@ -271,7 +271,7 @@ def create_generator(   generator_inputs,
     #decoder_6 [b, 1, 32, 64] => [b, 1, 32, 128] => [b, 1, 64, 32]
     print("d6 concatting ", out.get_shape(), " + ", e05.get_shape())
     out = tf.concat([out, e05], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.25)
     out = deconv(out, gen_w16, out_shape, "deconv6")
     out = batch_norm(out, is_training)
@@ -279,7 +279,7 @@ def create_generator(   generator_inputs,
     #decoder_7 [b, 1, 64, 32] => [b, 1, 64, 64] => [b, 1, 128, 32]
     print("d7 deconcatting ", out.get_shape(), " + ", e04.get_shape())
     out = tf.concat([out, e04], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.5)
     out = deconv(out, gen_w17, out_shape, "deconv7")
     out = batch_norm(out, is_training)
@@ -295,7 +295,7 @@ def create_generator(   generator_inputs,
     #decoder_9 [b, 1, 256, 16] => [b, 1, 256, 32] => [b, 1, 512, 16]
     print("d9 concatting ", out.get_shape(), " + ", e02.get_shape())
     out = tf.concat([out, e02], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.5)
     out = deconv(out, gen_w19, out_shape, "deconv9")
     out = batch_norm(out, is_training)
@@ -303,7 +303,7 @@ def create_generator(   generator_inputs,
     #decoder_10 [b, 1, 512, 16] => [b, 1, 512, 32] => [b, 1, 512, 1]
     print("d10 concatting ", out.get_shape(), " + ", e01.get_shape())
     out = tf.concat([out, e01], axis=3)
-    out = dec_relu(out)
+    out = dec_relu(out, hyper_params.enable_quantization)
     out_shape=deconv_shape(out, 0.0, 1) #[b, 1, 2*512, 1)
     out = deconv(out, gen_w20, out_shape, "deconv10")
     out = tf.tanh(out)
@@ -535,4 +535,4 @@ class ProgressLoggingHook(StepCountHook):
 
     def ellapsed(self, val, step):
         percent=100.0*step/self._max_steps
-        print("progress={0}% ({1}/{2})".format(percent, step, self._max_steps))
+        print("progress={0}% ({1}/{2}) steps={3}".format(percent, step, self._max_steps, self._step))
