@@ -13,9 +13,9 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-PB_FILE = '../../data/output/frozen_model/frozen.pb'
-UFF_FILE = '../../data/output/frozen_model/frozen.uff'
-ENGINE_FILE = '../../data/output/frozen_model/tensorrt_engine_fp'
+PB_FILE = './frozen_model/frozen.pb'
+UFF_FILE = './frozen_model/frozen.uff'
+ENGINE_FILE = './tensorrt_engine_fp'
 DEVICE_NAME = 'DUO-CAPTURE'
 
 """
