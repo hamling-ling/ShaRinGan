@@ -8,6 +8,7 @@ import argparse
 import os
 import inspect
 import json
+import re
 from sharingan_base import *
 import soundfile as sf
 from collections import namedtuple
@@ -27,7 +28,6 @@ def process_args():
     else:
         dir_cp = os.path.dirname(a.checkpoint)
 
-    dir_cp = os.path.dirname(a.checkpoint)
     filename = os.path.join(dir_cp, "hyper_params.json")
     with open(filename) as fd:
         json_str = fd.read()
@@ -63,9 +63,6 @@ def main():
             "outputs": outputs,
         }
 
-    with tf.name_scope("parameter_count"):
-        parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
-
     server = tf.train.Server.create_local_server()
     saver = tf.train.Saver()
 
@@ -81,15 +78,18 @@ def main():
                                        is_chief=True,
                                        scaffold = scaffold) as sess:
         print("loading model from checkpoint")
+        checkpoint = None
+        cp_num = None
         if os.path.isdir(a.checkpoint):
             print("restoring latest in ", a.checkpoint)
             checkpoint = tf.train.latest_checkpoint(a.checkpoint)
-            saver.restore(sess, checkpoint)
         else:
             print("restoring from a file ", a.checkpoint)
-            saver.restore(sess, a.checkpoint)
-        coord = tf.train.Coordinator()
+        saver.restore(sess, checkpoint)
 
+        cp_num= int(re.compile(r".+ckpt-(\d+)$").match(checkpoint).group(1))
+
+        coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
         wave_in = []
@@ -120,7 +120,7 @@ def main():
             coord.join(threads)
 
         fn_input = os.path.join(a.output_dir, "input.wav")
-        fn_target = os.path.join(a.output_dir, "target.wav")
+        fn_target = os.path.join(a.output_dir, "target_{:06d}.wav".format(cp_num))
         fn_output = os.path.join(a.output_dir, "output.wav")
 
         os.makedirs(a.output_dir, exist_ok=True)
