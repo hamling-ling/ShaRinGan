@@ -36,10 +36,7 @@ def process_args():
 
     return a, hyp
 
-
-def main():
-    a, hyper_params = process_args()
-
+def convert(a, hyper_params, should_output_refs):
     examples = load_examples(input_dir=a.input_dir, batch_size=a.batch_size, is_training=False)
     print("examples count = %d" % examples.count)
 
@@ -81,10 +78,12 @@ def main():
         checkpoint = None
         cp_num = None
         if os.path.isdir(a.checkpoint):
-            print("restoring latest in ", a.checkpoint)
+            print("restoring latest latest checkpoint in ", a.checkpoint)
             checkpoint = tf.train.latest_checkpoint(a.checkpoint)
         else:
-            print("restoring from a file ", a.checkpoint)
+            print("restoring from a specific checkpoint ", a.checkpoint)
+            checkpoint = a.checkpoint
+
         saver.restore(sess, checkpoint)
 
         cp_num= int(re.compile(r".+ckpt-(\d+)$").match(checkpoint).group(1))
@@ -124,11 +123,16 @@ def main():
         fn_output = os.path.join(a.output_dir, "output.wav")
 
         os.makedirs(a.output_dir, exist_ok=True)
-        sf.write(fn_input, wave_in, 44100)
-        print(fn_input, " saved")
-        sf.write(fn_target, wave_tgt, 44100)
-        print(fn_target, " saved")
+        if should_output_refs:
+            sf.write(fn_input, wave_in, 44100)
+            print(fn_input, " saved")
+            sf.write(fn_target, wave_tgt, 44100)
+            print(fn_target, " saved")
         sf.write(fn_output, wave_out, 44100)
         print(fn_output, " saved")
+
+def main():
+    a, hyper_params = process_args()
+    convert(a, hyper_params, True)
 
 main()
