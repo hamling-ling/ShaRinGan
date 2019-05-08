@@ -119,8 +119,8 @@ def convert(a, hyper_params, should_output_refs):
             coord.join(threads)
 
         fn_input = os.path.join(a.output_dir, "input.wav")
-        fn_target = os.path.join(a.output_dir, "target_{:06d}.wav".format(cp_num))
-        fn_output = os.path.join(a.output_dir, "output.wav")
+        fn_target = os.path.join(a.output_dir, "target.wav")
+        fn_output = os.path.join(a.output_dir, "output_{:06d}.wav".format(cp_num))
 
         os.makedirs(a.output_dir, exist_ok=True)
         if should_output_refs:
