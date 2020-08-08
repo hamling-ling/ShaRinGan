@@ -41,18 +41,18 @@ a guitar sound. It also works as audio output interface.
 ### Setup Jetson Nano
 
 1. Install JetPack 4.2.3 SD Card Image from [JetPack Archive]( https://developer.nvidia.com/embedded/jetpack-archive "JetPack Archive").
-1. Login to you Jetson Nano and proceed following commands.
+1. Login to you Jetson Nano and proceed following commands.\
    (See [NVIDIA Documentation - Installing TensorFlow For Jetson Platform](https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html "NVIDIA Documentation - Installing TensorFlow For Jetson Platform") )
 ```
-sudo apt update
-sudo apt install python3-pip libhdf5-serial-dev hdf5-tools libhdf5-dev zlib1g-dev zip libjpeg8-dev liblapack-dev libblas-dev gfortran
-sudo pip3 install -U pip testresources setuptools
+$ sudo apt update
+$ sudo apt install python3-pip libhdf5-serial-dev hdf5-tools libhdf5-dev zlib1g-dev zip libjpeg8-dev liblapack-dev libblas-dev gfortran
+$ sudo pip3 install -U pip testresources setuptools
 
 ```
-3. Install pycuda
-Add path to cuda
+3. Install pycuda\
+  Add path to cuda
 ```
-vi ~/.bashrc
+$ vi ~/.bashrc
 ```
 Then add followings
 ```
@@ -61,20 +61,20 @@ export LIBRARY_PATH=$LIBRARY_PATH:/usr/local/cuda/lib64
 ```
 Apply the change
 ```
-source ~/.bashrc
+$ source ~/.bashrc
 ```
 Install pycuda
 ```
-pip3 install pycuda
+$ pip3 install pycuda
 ```
 4. Install Tensorflow 1.13.1
 ```
-sudo pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v42 tensorflow-gpu==1.13.1+nv19.3
+$ sudo pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v42 tensorflow-gpu==1.13.1+nv19.3
 ```
 5. Setup pyaudio
 ```
-sudo apt-get install portaudio19-dev
-pip3 install pyaudio
+$ sudo apt-get install portaudio19-dev
+$ pip3 install pyaudio
 ```
 
 ### Run the App
@@ -90,14 +90,14 @@ $ cd ShaRinGan/src/app
 ```
 $ ./download_model.sh
 ```
-5. Confirm audio interface.
-   If you are using an audio interface other than DUO-CAPTURE,
-   you need to modify following line of sharingan.py
+5. Confirm audio interface\
+If you are using an audio interface other than DUO-CAPTURE,
+you need to modify following line of sharingan.py
 ```
 DEVICE_NAME = 'DUO-CAPTURE'
 ```
-6. Setup DUO-CAPTURE mk2 (If you are using)
-   You need to set EXT switch to "**" not "*" (as described [here]( https://ubuntuforums.org/showthread.php?t=1905531 "Ubuntu forums - Roland USB audio interface impossible to make it work"))
+6. Setup DUO-CAPTURE mk2 (If you are using)\
+  You need to set EXT switch to "**" not "*" (as described [here]( https://ubuntuforums.org/showthread.php?t=1905531 "Ubuntu forums - Roland USB audio interface impossible to make it work"))
 4. Run the app
 ```
 $ ./sharingan.sh
