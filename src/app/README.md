@@ -8,7 +8,7 @@ The model is based on [ShaRinGan](https://github.com/hamling-ling/ShaRinGan "Sha
 ## Overview
 
 This project is about making a python app to turn the Jetson Nano into guitar effector. The Jetson-Nano captures guitar sound through audio interface.
-Then it moduletes the sound like effector as a result of by DC-GAN inference.
+Then it moduletes the sound like effector as a result of DC-GAN inference.
 
 ```
 +--------+     +-------------+     +---------+
@@ -40,7 +40,7 @@ a guitar sound. It also works as audio output interface.
 
 ### Setup Jetson Nano
 
-1. Install JetPack 4.2.3 SD Card Image from [JetPack Archive]( https://developer.nvidia.com/embedded/jetpack-archive "JetPack Archive").
+1. Install JetPack 4.2.3 SD card image from [JetPack Archive]( https://developer.nvidia.com/embedded/jetpack-archive "JetPack Archive").
 1. Login to you Jetson Nano and proceed following commands.\
    (See [NVIDIA Documentation - Installing TensorFlow For Jetson Platform](https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html "NVIDIA Documentation - Installing TensorFlow For Jetson Platform") )
 ```
