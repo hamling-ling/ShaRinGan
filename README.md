@@ -66,8 +66,13 @@ Note that blue: input source, green: ground truth and orange: inference.
 
 ### Prerequisites
 
-- tensorflow 1.4.0
+- tensorflow 1.13.1
 - pysoundfile
+
+### Jetson Nano Application
+
+Guitar Effector application using this model can be found in app directory.
+["Jetson Nano DCGAN Guitar Effector"]( ./src/app/README.md "Jetson Nano DCGAN Guitar Effector")
 
 ## License
 
