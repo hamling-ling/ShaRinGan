@@ -30,7 +30,7 @@ class Sharingan():
         self.enabled = True
         self.quit = False
         self.killer = kl.GracefulKiller()
-
+        
     def start(self):
         """
         start sharingan. has to be run from main thread
@@ -39,15 +39,20 @@ class Sharingan():
         self.effector.create_engine()
         self.effector.initialize_engine()
 
+        # warm up
+        for i in range(10):
+            self.effector.effect(np.zeros([1, 1, 1024]))
+        
         audio = audio_streamer.AudioStreamer(input_device_name=DEVICE_NAME, output_device_name=DEVICE_NAME)
         audio.open_device(self, self.audio_arrived)
         audio.start_streaming()
 
         self.print_instruction()
-    
+
         while audio.is_streaming() and not self.should_quit():
             # Wait to audio data arrived
             self.event.wait()
+            self.event.clear()
             # Once audio data is arrived. is should be stored in self.input
             # We give the data to effector to get modified sound
             # Send signal to audio callback function
@@ -56,13 +61,11 @@ class Sharingan():
             else:
                 self.output = self.input
             self.event.set()
-            self.event.clear()
             # Receive Keyboard iput
             self.handle_input()
 
         print("quitting")
         self.event.set()
-        self.event.clear()
         audio.stop_streaming()
         audio.close_device()
         print("sharingan finished")
@@ -73,12 +76,17 @@ class Sharingan():
         # Store data and activate inference process
         self.input = in_data
         self.event.set()
-        self.event.clear()
         # Sait until inference is done
-        self.event.wait()
+        wait_result = self.event.wait(int(1024.0/44100*1000))
+        self.event.clear()
 
         # return data to play
-        return self.output
+        if(wait_result) :
+            return self.output
+        else:
+            print("timeout")
+            return in_data
+        
 
     def should_quit(self):
         if(self.quit):
