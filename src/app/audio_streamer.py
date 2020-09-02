@@ -35,7 +35,8 @@ class AudioStreamer():
                         frames_per_buffer=1024,
                         output=True,
                         input=True,
-                        stream_callback=self.data_arrived)
+                        stream_callback=self.data_arrived,
+                        start=False )
         print(self.input_device_name, " opend for input")
         print(self.output_device_name, " opend for output")
 
