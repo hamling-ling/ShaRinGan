@@ -31,8 +31,8 @@ a guitar sound. It also works as audio output interface.
 ## Requirements
 
 - Jetson Nano
-- JetPack 4.2.3
-- Tensorflow 1.13.1
+- JetPack 4.4
+- Tensorflow 1.15.3
 - pyaudio
 - Audio interface
 
@@ -40,7 +40,7 @@ a guitar sound. It also works as audio output interface.
 
 ### Setup Jetson Nano
 
-1. Install JetPack 4.2.3 SD card image from [JetPack Archive]( https://developer.nvidia.com/embedded/jetpack-archive "JetPack Archive").
+1. Install JetPack 4.4 SD card image from [JetPack SDK]( https://developer.nvidia.com/embedded/jetpack "JetPack SDK").
 1. Login to you Jetson Nano and proceed following commands.\
    (See [NVIDIA Documentation - Installing TensorFlow For Jetson Platform](https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html "NVIDIA Documentation - Installing TensorFlow For Jetson Platform") )
 ```
@@ -65,16 +65,16 @@ $ source ~/.bashrc
 ```
 Install pycuda
 ```
-$ pip3 install pycuda
+$ sudo pip3 install pycuda
 ```
-4. Install Tensorflow 1.13.1
+4. Install Tensorflow 1.15.3
 ```
-$ sudo pip3 install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v42 tensorflow-gpu==1.13.1+nv19.3
+$ sudo pip3 install --pre --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v44 tensorflow==1.15.3+nv20.7
 ```
 5. Setup pyaudio
 ```
 $ sudo apt-get install portaudio19-dev
-$ pip3 install pyaudio
+$ sudo pip3 install pyaudio
 ```
 
 ### Run the App
