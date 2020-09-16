@@ -12,16 +12,37 @@ class AudioStreamer():
         self.format = pyaudio.paInt16
         self.seq = 0
 
+    def get_inout_devices(self):
+        input_device = None
+        output_device = None
+        retry_counter = 0
+        while retry_counter < 10:
+            input_device = au.get_pyaudio_device(self.p, self.input_device_name)
+            output_device = au.get_pyaudio_device(self.p, self.output_device_name)
+            if(input_device is not None and output_device is not None):
+                break
+            if(input_device is None):
+                print("retrying to get audio input device", self.input_device_name)
+            if(output_device is None):
+                print("retrying to gete audio output device", self.output_device_name)
+
+            # Re-create pyaudio and try again
+            self.p.terminate()
+            self.p = pyaudio.PyAudio()
+            time.sleep(1)
+            retry_counter = retry_counter + 1
+        return input_device, output_device
+
     def open_device(self, callback_context, callback):
         self.p = pyaudio.PyAudio()
-        input_device = au.get_pyaudio_device(self.p, self.input_device_name)
+        input_device, output_device = self.get_inout_devices()
         if(input_device is None):
             msg = "input device {0} not found".format(self.input_device_name)
+            self.p.terminate()
             raise ValueError(msg)
-
-        output_device = au.get_pyaudio_device(self.p, self.output_device_name)
         if(output_device is None):
             msg = "output device {0} not found".format(self.output_device_name)
+            self.p.terminate()
             raise ValueError(msg)
 
         self.user_callback = callback
@@ -35,7 +56,8 @@ class AudioStreamer():
                         frames_per_buffer=1024,
                         output=True,
                         input=True,
-                        stream_callback=self.data_arrived)
+                        stream_callback=self.data_arrived,
+                        start=False )
         print(self.input_device_name, " opend for input")
         print(self.output_device_name, " opend for output")
 
