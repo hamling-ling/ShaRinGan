@@ -89,7 +89,7 @@ class AudioStreamer():
             print("took ", milli_sec, "ms might be dropping frame data")
         self.seq = self.seq + 1
 
-        # convert returned data from callback to pythond data
+        # convert returned data from callback to pyaudio data
         denorm=out_floats*32768
         out_data16 = denorm.astype(np.int16)
         out_data = out_data16.tobytes()

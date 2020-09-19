@@ -13,8 +13,8 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-PB_FILE = './frozen_model/frozen.pb'
-UFF_FILE = './frozen_model/frozen.uff'
+PB_FILE     = './frozen_model/frozen.pb'
+UFF_FILE    = './frozen_model/frozen.uff'
 ENGINE_FILE = './tensorrt_engine_fp'
 DEVICE_NAME = 'DUO-CAPTURE'
 
@@ -22,13 +22,18 @@ DEVICE_NAME = 'DUO-CAPTURE'
 Provides guitor effector functionality using AI
 """
 class Sharingan():
+
+    TIMEOUT_SEC = 0.5*1024.0*1.0/44100.0
+
     def __init__(self):
-        self.event = threading.Event()
         self.input = np.zeros([1,1,1024])
         self.output = np.zeros([1,1,1024])
         self.effector = effector.Effector(PB_FILE, UFF_FILE, ENGINE_FILE)
         self.enabled = True
         self.quit = False
+        self.input_lock = threading.Lock()
+        self.output_condition = threading.Condition(threading.Lock())
+        self.output_condition.state = False # True: notify called, otherwise False
         self.killer = kl.GracefulKiller()
         
     def start(self):
@@ -50,22 +55,35 @@ class Sharingan():
         self.print_instruction()
 
         while audio.is_streaming() and not self.should_quit():
-            # Wait to audio data arrived
-            self.event.wait()
-            self.event.clear()
+
             # Once audio data is arrived. is should be stored in self.input
-            # We give the data to effector to get modified sound
-            # Send signal to audio callback function
-            if(self.enabled):
-                self.output = self.effector.effect(self.input)
-            else:
-                self.output = self.input
-            self.event.set()
+            self.input_lock.acquire()
+            local_input = None
+            if(self.input is not None):
+                local_input = np.copy(self.input)
+            self.input_lock.release()
+
+            if(local_input is not None):
+                # We give the data to effector to modulate sound data
+                # Send signal to audio callback function
+                if(self.enabled):
+                    local_output = self.effector.effect(local_input)
+                else:
+                    local_output = local_input
+
+                self.output_condition.acquire()
+                self.output_condition.state = False
+
+                self.output = np.copy(local_output)
+
+            self.output_condition.state = True
+            self.output_condition.notify()
+            self.output_condition.release()
+
             # Receive Keyboard iput
             self.handle_input()
 
         print("quitting")
-        self.event.set()
         audio.stop_streaming()
         audio.close_device()
         print("sharingan finished")
@@ -73,20 +91,30 @@ class Sharingan():
     def audio_arrived(self, context, seq, in_data):
         if(self.quit):
             return in_data
-        # Store data and activate inference process
-        self.input = in_data
-        self.event.set()
-        # Sait until inference is done
-        wait_result = self.event.wait(int(1024.0/44100*1000))
-        self.event.clear()
+
+        self.input_lock.acquire()
+        # store data that will be processed by main thread
+        context.input = np.copy(in_data)
+        self.input_lock.release()
+
+        self.output_condition.acquire()
+        self.output_condition.state = False
+        # wait for main thread finish processing
+        self.output_condition.wait(self.TIMEOUT_SEC)
+
+        # if timeout, use in_data to play, otherwise use processed data
+        is_timeout   = self.output_condition.state == False
+        final_output = None
+        if(is_timeout):
+            print("timeout")
+            final_output = in_data
+        else:
+            final_output = np.copy(context.output)
+
+        self.output_condition.release()
 
         # return data to play
-        if(wait_result) :
-            return self.output
-        else:
-            print("timeout")
-            return in_data
-        
+        return final_output
 
     def should_quit(self):
         if(self.quit):
