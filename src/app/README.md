@@ -44,10 +44,11 @@ a guitar sound. It also works as audio output interface.
 1. Login to you Jetson Nano and proceed following commands.\
    (See [NVIDIA Documentation - Installing TensorFlow For Jetson Platform](https://docs.nvidia.com/deeplearning/frameworks/install-tf-jetson-platform/index.html "NVIDIA Documentation - Installing TensorFlow For Jetson Platform") )
 ```
-$ sudo apt update
-$ sudo apt install python3-pip libhdf5-serial-dev hdf5-tools libhdf5-dev zlib1g-dev zip libjpeg8-dev liblapack-dev libblas-dev gfortran
+$ sudo apt-get update
+$ sudo apt-get install libhdf5-serial-dev hdf5-tools libhdf5-dev zlib1g-dev zip libjpeg8-dev liblapack-dev libblas-dev gfortran
+$ sudo apt-get install python3-pip
 $ sudo pip3 install -U pip testresources setuptools
-
+$ sudo pip3 install -U numpy==1.16.1 future==0.18.2 mock==3.0.5 h5py==2.10.0 keras_preprocessing==1.1.1 keras_applications==1.0.8 gast==0.2.2 futures protobuf pybind11
 ```
 3. Install pycuda\
   Add path to cuda
@@ -65,7 +66,7 @@ $ source ~/.bashrc
 ```
 Install pycuda
 ```
-$ sudo pip3 install pycuda
+$ sudo pip3 install -U pycuda
 ```
 4. Install Tensorflow 1.15.3
 ```
