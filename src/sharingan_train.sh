@@ -1,11 +1,5 @@
 #!/bin/bash
 
-CHECK_POINT_OPT=
-if [ "$1" == "--continue" ]; then
-    CHECK_POINT_OPT="--checkpoint ./sharingan_checkpoints"
-fi
-echo CHECK_POINT_OPT=$INPUT_DIR_OPT
-
 OUTPUT_DIR="../data/output/pretrained_model"
 rm -rf $OUTPUT_DIR
 mkdir $OUTPUT_DIR
