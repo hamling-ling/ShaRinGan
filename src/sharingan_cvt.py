@@ -109,7 +109,8 @@ def convert(a, hyper_params, should_output_refs):
                 wave_in.extend(inputs[0,0,:,0].tolist())
                 wave_tgt.extend(targets[0,0,:,0].tolist())
                 wave_out.extend(outputs[0,0,:,0].tolist())
-                print("{0}/{1}".format(counter, examples.count))
+                if( counter % 100 == 0):
+                    print("{0}/{1}".format(counter, examples.count))
 
                 counter = counter + 1
         except tf.errors.OutOfRangeError:
