@@ -20,7 +20,7 @@ from abc import ABCMeta, abstractmethod
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-EPS = 1e-12
+EPS = 1e-7
 SZ = 1024
 TF_DTYPE = tf.float32
 
