@@ -6,7 +6,7 @@ mkdir $OUTPUT_DIR
 
 python sharingan_train.py \
   --output_dir $OUTPUT_DIR \
-  --max_epochs 30 \
+  --max_epochs 10 \
   --lr 0.0001 \
   --beta1 0.05 \
   --conv_std 0.005 \
