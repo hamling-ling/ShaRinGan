@@ -6,6 +6,7 @@ import tensorrt as trt
 import uff
 import pycuda.driver as cuda
 import pycuda.autoinit
+import matplotlib.pyplot as plt
 
 
 PB_FILE = '../data/output/frozen_model/frozen.pb'
