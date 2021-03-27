@@ -1,11 +1,12 @@
 import os
 import time
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tensorrt as trt
 import uff
 import pycuda.driver as cuda
 import pycuda.autoinit
+import matplotlib.pyplot as plt
 
 
 PB_FILE = '../data/output/frozen_model/frozen.pb'
@@ -13,6 +14,7 @@ UFF_FILE = '../data/output/frozen_model/frozen.uff'
 ENGINE_FILE = '../data/output/frozen_model/tensorrt_engine_fp'
 RESULT_PLOT_FILE = '../data/output/frozen_model/tensorrt_engine_fp.png'
 
+tf.disable_v2_behavior()
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 def convert_to_uff(pb_file_in, uff_file_out):

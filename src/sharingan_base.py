@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 import argparse
 import os
@@ -18,9 +18,10 @@ import matplotlib.pyplot as plt
 
 from abc import ABCMeta, abstractmethod
 
+tf.disable_v2_behavior()
 tf.logging.set_verbosity(tf.logging.INFO)
 
-EPS = 1e-12
+EPS = 1e-7
 SZ = 1024
 TF_DTYPE = tf.float32
 

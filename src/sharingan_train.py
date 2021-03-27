@@ -1,14 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import tensorflow as tf
-import numpy as np
-import argparse
-import os
-import inspect
-import json
-import random
 from sharingan_base import *
 
 def initRand():
@@ -97,7 +86,7 @@ def main():
         parameter_count = tf.reduce_sum([tf.reduce_prod(tf.shape(v)) for v in tf.trainable_variables()])
 
     server = tf.train.Server.create_local_server()
-    saver = tf.train.Saver(max_to_keep=64)
+    saver = tf.train.Saver(max_to_keep=100)
 
     tensors_to_log = {
         "d_loss": "discriminator_loss/discrim_loss",
