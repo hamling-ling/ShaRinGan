@@ -106,7 +106,7 @@ cd ShaRinGan/docker
 docker build -f Dockerfile_trt \
 	--build-arg user=$(id -un) \
 	--build-arg user_id="$(id -u)" \
-   --build-arg user_grp="$(id -gn)" \
+    --build-arg user_grp="$(id -gn)" \
 	--build-arg user_gid="$(id -g)" \
 	--build-arg pass=1234 \
 	-t tensor-rt .
