@@ -1,7 +1,7 @@
 # How to setup
 #
 # Build docker image
-# > docker build -f Dockerfile_cuda10 \
+# > docker build -f Dockerfile_trt \
 #	--build-arg user=$(id -un) \
 #	--build-arg user_id="$(id -u)" \
 #   --build-arg user_grp="$(id -gn)" \
