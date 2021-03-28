@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 sz=1024
-offsets = np.array([0])
+offsets = np.arange(0, 1000, 50)
 
 training_fn_pairs = [
     ["../data/raw_waves/gt_notes.wav", "../data/raw_waves/gt_notes_dist.wav"],
@@ -33,7 +33,7 @@ def outputWave(input_fn_pairs, output_path, is_training):
     file_counter = 0
     for fnp in input_fn_pairs:
         data_src, data_cnv  = readWave(fnp[0], fnp[1])
-        loops = int(len(data_src)/sz) - 1
+        loops = int(len(data_src)/sz) - 2
         for i in np.arange(loops):
             for j in np.arange(offsets.shape[0]):
                 data = np.zeros([2,sz], dtype=np.float32)
